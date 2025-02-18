@@ -5,3 +5,4 @@ dnspython
 pymongo
 gunicorn  # Pour le déploiement sur Render
 python-dotenv
+pytz

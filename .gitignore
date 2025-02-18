@@ -1,39 +1,4 @@
-# 🚀 Ignorer les fichiers Python compilés
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
 
 # 📜 Ignorer les fichiers d'environnement
 .env
 *.env
-
-# 🔥 Ignorer la base de données SQLite locale (si utilisée)
-db.sqlite3
-*.sqlite3
-
-# 🔄 Ignorer les fichiers temporaires de Django
-*.log
-*.pot
-*.pyc
-*.swp
-*.swo
-
-# 📦 Ignorer les dépendances installées localement
-venv/
-.env/
-node_modules/
-
-# ⚙️ Ignorer les fichiers générés par l'IDE
-.vscode/
-.idea/
-*.iml
-
-# 🌍 Ignorer les fichiers de cache
-.DS_Store
-*.bak
-*.tmp
-
-# 🚀 Ignorer les fichiers spécifiques au déploiement
-staticfiles/
-media/
