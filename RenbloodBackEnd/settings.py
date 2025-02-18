@@ -55,8 +55,9 @@ MIDDLEWARE = [
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5175",  # Ton frontend en développement
+    "https://renblood-frontend.onrender.com",
 ]
-
+CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_METHODS = [
     "GET",
     "POST",
