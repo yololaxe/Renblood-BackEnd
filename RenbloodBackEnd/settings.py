@@ -27,8 +27,6 @@ SECRET_KEY = '7i$q*aq)$3solh4xc_)8z$m2wqfmm&6+=!-kg5o$j9%v+c3ikp'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
-
 
 # Application definition
 
@@ -110,6 +108,7 @@ DATABASES = {
     }
 }
 
+ALLOWED_HOSTS = ["renblood-backend.onrender.com", "127.0.0.1", "localhost"]
 
 
 # Password validation
