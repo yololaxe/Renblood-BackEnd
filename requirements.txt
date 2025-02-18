@@ -6,3 +6,4 @@ pymongo
 gunicorn  # Pour le déploiement sur Render
 python-dotenv
 pytz
+pymongo==3.12.3  # Version compatible avec Djongo
