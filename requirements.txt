@@ -1,6 +1,6 @@
 django
 django-cors-headers
-djongo
+djongo==1.3.6
 dnspython
 pymongo
 gunicorn  # Pour le déploiement sur Render
