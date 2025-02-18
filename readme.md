@@ -1,3 +1,8 @@
+pip install django
+pip install django-cors-headers
+pip install djongo
+pip install dnspython
+
 3️⃣ Appliquer les migrations
 python manage.py makemigrations players
 python manage.py migrate

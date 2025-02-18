@@ -1,0 +1,7 @@
+django
+django-cors-headers
+djongo
+dnspython
+pymongo
+gunicorn  # Pour le déploiement sur Render
+python-dotenv

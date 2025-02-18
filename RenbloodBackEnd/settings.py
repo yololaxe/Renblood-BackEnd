@@ -11,6 +11,8 @@ https://docs.djangoproject.com/en/3.1/ref/settings/
 """
 
 from pathlib import Path
+import os
+from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -90,16 +92,18 @@ WSGI_APPLICATION = 'RenbloodBackEnd.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/3.1/ref/settings/#databases
 
+# Charger les variables d'environnement depuis un fichier .env
+load_dotenv()
+
 DATABASES = {
     'default': {
         'ENGINE': 'djongo',
-        'NAME': 'renblood_mongo',
+        'NAME': os.getenv('MONGO_DB_NAME', 'renblood_mongo'),
         'CLIENT': {
-            'host': 'mongodb://localhost:27017/',
+            'host': os.getenv('MONGO_DB_URI'),
         }
     }
 }
-
 
 
 # Password validation
