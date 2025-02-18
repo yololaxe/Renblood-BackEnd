@@ -95,15 +95,18 @@ WSGI_APPLICATION = 'RenbloodBackEnd.wsgi.application'
 # Charger les variables d'environnement depuis un fichier .env
 load_dotenv()
 
+
 DATABASES = {
     'default': {
         'ENGINE': 'djongo',
         'NAME': os.getenv('MONGO_DB_NAME', 'renblood_mongo'),
+        'ENFORCE_SCHEMA': False,  # Évite certaines erreurs Django
         'CLIENT': {
             'host': os.getenv('MONGO_DB_URI'),
         }
     }
 }
+
 
 
 # Password validation
