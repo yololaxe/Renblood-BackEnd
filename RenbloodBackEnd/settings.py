@@ -96,12 +96,16 @@ WSGI_APPLICATION = 'RenbloodBackEnd.wsgi.application'
 load_dotenv()
 
 
+import os
+
 DATABASES = {
     'default': {
         'ENGINE': 'djongo',
         'NAME': os.getenv('MONGO_DB_NAME', 'renblood_mongo'),
         'CLIENT': {
             'host': os.getenv('MONGO_DB_URI'),
+            'tls': True,
+            'tlsAllowInvalidCertificates': True
         }
     }
 }
