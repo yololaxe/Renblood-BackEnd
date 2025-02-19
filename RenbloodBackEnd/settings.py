@@ -89,7 +89,9 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'RenbloodBackEnd.wsgi.application'
-
+AUTHENTICATION_BACKENDS = [
+    'django.contrib.auth.backends.AllowAllUsersModelBackend',
+]
 
 # Database
 # https://docs.djangoproject.com/en/3.1/ref/settings/#databases
@@ -104,6 +106,7 @@ DATABASES = {
     'default': {
         'ENGINE': 'djongo',
         'NAME': os.getenv('MONGO_DB_NAME', 'renblood_mongo'),
+        'ENFORCE_SCHEMA': False,
         'CLIENT': {
             'host': os.getenv('MONGO_DB_URI'),
             'tls': True,
