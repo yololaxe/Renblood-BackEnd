@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     "corsheaders",
     'players',  # Ajout de l'application
+    'jobs',
 ]
 
 

@@ -47,65 +47,50 @@ Invoke-WebRequest -Uri "http://127.0.0.1:8000/players/update/0kX4gctisIcOKvHDKJm
 
 $body = @{
     id = "0kX4gctisIcOKvHDKJmlDRLSLFu2"
-    id_minecraft = "010203040506070809"
-    pseudo_minecraft = "Gotaga"
-    name = "Technoblade"
-    surname = "Never dies"
-    description = "Un player"
-    rank = "Esclave"
-    money = 0
+    id_minecraft = "Yololaxe"
+    pseudo_minecraft = "Yololaxe_"
+    name = "John"
+    surname = "Doe"
+    description = "Un aventurier intrépide."  # Éviter les accents pour tester
+    rank = "Chevalier"
+    money = 500.0
     divin = $false
-
-    # Liste des traits et actions
-    trait = @()
-    actions = @()
-
-    # Statistiques
-    life = 10
-    strength = 1
-    speed = 100
-    reach = 5
-    resistance = 0
-    place = 18
-    haste = 78
-    regeneration = 1
-
-    # Capacités
-    dodge = 2
-    discretion = 3
-    charisma = 1
-    rethoric = 1
-    mana = 100
-    negotiation = 0
-    influence = 1
-    skill = 100
-
-    # Expériences
+    life = 15
+    strength = 3
+    speed = 120
+    reach = 6
+    resistance = 2
+    place = 20
+    haste = 85
+    regeneration = 2
+    trait = @("Brave", "Loyal")
+    actions = @("Sword Mastery", "Shield Block")
+    dodge = 4
+    discretion = 2
+    charisma = 5
+    rethoric = 3
+    mana = 80
+    negotiation = 2
+    influence = 4
+    skill = 110
     experiences = @{
-        "Lumberjack" = 0
-        "Artisan" = 0
-        "Naval_Architect" = 0
-        "Carpenter" = 0
-        "Miner" = 0
-        "Blacksmith" = 0
-        "Glassmaker" = 0
-        "Mason" = 0
-        "Farmer" = 0
-        "Breeder" = 0
-        "Fisherman" = 0
-        "Innkeeper" = 0
-        "Guard" = 0
-        "Merchant" = 0
-        "Transporter" = 0
-        "Explorer" = 0
-        "Builder" = 0
-        "Bestiary" = 0
-        "Politician" = 0
-        "Banker" = 0
+        jobs = @{
+            lumberjack = @{
+                xp = 1200
+                level = 9
+                progression = @($true, $true, $false, $true, $false, $false, $false, $false, $false, $false)
+                choose_lvl_10 = "/firecamp"
+            }
+        }
     }
 } | ConvertTo-Json -Depth 10
 
-Invoke-WebRequest -Uri "http://127.0.0.1:8000/players/create/" `
-                  -Method POST `
-                  -ContentType "application/json" `
-                  -Body $body
+$headers = @{
+    "Content-Type" = "application/json"
+}
+
+$response = Invoke-WebRequest -Uri "http://127.0.0.1:8000/players/create/" `
+    -Method POST `
+    -Headers $headers `
+    -Body ([System.Text.Encoding]::UTF8.GetBytes($body)) `
+    -UseBasicParsing

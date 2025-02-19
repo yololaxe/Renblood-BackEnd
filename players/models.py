@@ -1,27 +1,8 @@
 from djongo import models
 
-def default_experiences():
+def default_jobs_experience():
     return {
-        "Lumberjack": 0,
-        "Artisan": 0,
-        "Naval_Architect": 0,
-        "Carpenter": 0,
-        "Miner": 0,
-        "Blacksmith": 0,
-        "Glassmaker": 0,
-        "Mason": 0,
-        "Farmer": 0,
-        "Breeder": 0,
-        "Fisherman": 0,
-        "Innkeeper": 0,
-        "Guard": 0,
-        "Merchant": 0,
-        "Transporter": 0,
-        "Explorer": 0,
-        "Builder": 0,
-        "Bestiary": 0,
-        "Politician": 0,
-        "Banker": 0,
+        "jobs": {}
     }
 
 class Player(models.Model):
@@ -35,7 +16,7 @@ class Player(models.Model):
     money = models.FloatField(default=0.0)
     divin = models.BooleanField(default=False)
 
-    # ✅ Vérifie que ces champs existent bien
+    # ✅ Attributs physiques
     life = models.IntegerField(default=10)
     strength = models.IntegerField(default=1)
     speed = models.IntegerField(default=100)
@@ -45,11 +26,11 @@ class Player(models.Model):
     haste = models.IntegerField(default=78)
     regeneration = models.IntegerField(default=1)
 
-    # ✅ Assure-toi que `trait` et `actions` sont bien déclarés
-    trait = models.JSONField(default=list)  # Stocke une liste de traits
-    actions = models.JSONField(default=list)  # Stocke une liste d'actions
+    # ✅ Traits et Actions
+    trait = models.JSONField(default=list)  
+    actions = models.JSONField(default=list)
 
-    # ✅ Vérifie la déclaration des capacités
+    # ✅ Compétences diverses
     dodge = models.IntegerField(default=2)
     discretion = models.IntegerField(default=3)
     charisma = models.IntegerField(default=1)
@@ -59,8 +40,8 @@ class Player(models.Model):
     influence = models.IntegerField(default=1)
     skill = models.IntegerField(default=100)
 
-    # ✅ Vérifie la déclaration des expériences
-    experiences = models.JSONField(default=default_experiences)
+    # ✅ Nouveau format des expériences
+    experiences = models.JSONField(default=default_jobs_experience)
 
     class Meta:
         db_table = "players"

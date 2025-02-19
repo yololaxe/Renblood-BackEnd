@@ -3,21 +3,71 @@ from django.views.decorators.csrf import csrf_exempt
 from django.core.exceptions import ObjectDoesNotExist
 from .models import Player
 import json
+from django.shortcuts import get_object_or_404
 
-import json
-from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-from .models import Player
 
-@csrf_exempt  # Désactiver CSRF pour faciliter les tests en local
+
+def get_player(request, player_id):
+    player = get_object_or_404(Player, id=player_id)
+
+    response_data = {
+        "id": player.id,
+        "id_minecraft": player.id_minecraft,
+        "pseudo_minecraft": player.pseudo_minecraft,
+        "name": player.name,
+        "surname": player.surname,
+        "description": player.description,
+        "rank": player.rank,
+        "money": player.money,
+        "divin": player.divin,
+        "life": player.life,
+        "strength": player.strength,
+        "speed": player.speed,
+        "reach": player.reach,
+        "resistance": player.resistance,
+        "place": player.place,
+        "haste": player.haste,
+        "regeneration": player.regeneration,
+        "trait": player.trait,
+        "actions": player.actions,
+        "dodge": player.dodge,
+        "discretion": player.discretion,
+        "charisma": player.charisma,
+        "rethoric": player.rethoric,
+        "mana": player.mana,
+        "negotiation": player.negotiation,
+        "influence": player.influence,
+        "skill": player.skill,
+        "experiences": player.experiences  # Directement au bon format
+    }
+
+    return JsonResponse(response_data)
+
+
+@csrf_exempt
+def delete_player(request, player_id):
+    """Supprimer un joueur avec son ID Firebase"""
+    if request.method == "DELETE":
+        try:
+            player = Player.objects.get(id=player_id)
+            player.delete()
+            return JsonResponse({"message": "Player deleted"}, status=200)
+        except ObjectDoesNotExist:
+            return JsonResponse({"error": "Player not found"}, status=404)
+
+    return JsonResponse({"error": "Invalid request"}, status=400)
+
+
+@csrf_exempt
 def create_player(request):
     if request.method == "POST":
         try:
             data = json.loads(request.body)
 
-            # Vérifier si l'ID existe déjà
-            if Player.objects.filter(id=data["id"]).exists():
-                return JsonResponse({"error": "Player ID already exists"}, status=400)
+            # Vérification et formatage des expériences
+            experiences = data.get("experiences", {})
+            if "jobs" not in experiences:
+                experiences = {"jobs": {}}
 
             player = Player.objects.create(
                 id=data["id"],
@@ -47,90 +97,37 @@ def create_player(request):
                 negotiation=data.get("negotiation", 0),
                 influence=data.get("influence", 1),
                 skill=data.get("skill", 100),
-                experiences=data.get("experiences", {})
+                experiences=experiences
             )
 
-            return JsonResponse({"message": "Player created", "id": player.id}, status=201)
+            return JsonResponse({"message": "Player ajouté avec succès!", "player_id": player.id}, status=201)
 
-        except json.JSONDecodeError:
-            return JsonResponse({"error": "Invalid JSON"}, status=400)
         except KeyError as e:
-            return JsonResponse({"error": f"Missing key: {str(e)}"}, status=400)
+            return JsonResponse({"error": f"Champ manquant: {str(e)}"}, status=400)
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)
 
-    return JsonResponse({"error": "Invalid request method"}, status=405)
+    return JsonResponse({"error": "Méthode non autorisée"}, status=405)
 
-
-
-def get_player(request, player_id):
-    try:
-        player = Player.objects.get(id=player_id)
-        return JsonResponse({
-            "id": player.id,
-            "id_minecraft": player.id_minecraft,
-            "pseudo_minecraft": player.pseudo_minecraft,
-            "name": player.name,
-            "surname": player.surname,
-            "description": player.description,
-            "rank": player.rank,
-            "money": player.money,
-            "divin": player.divin,
-            "life": player.life,
-            "strength": player.strength,
-            "speed": player.speed,
-            "reach": player.reach,
-            "resistance": player.resistance,
-            "place": player.place,
-            "haste": player.haste,
-            "regeneration": player.regeneration,
-            "trait": player.trait,
-            "actions": player.actions,
-            "dodge": player.dodge,
-            "discretion": player.discretion,
-            "charisma": player.charisma,
-            "rethoric": player.rethoric,
-            "mana": player.mana,
-            "negotiation": player.negotiation,
-            "influence": player.influence,
-            "skill": player.skill,
-            "experiences": player.experiences,
-        }, status=200)
-
-    except Player.DoesNotExist:
-        return JsonResponse({"error": "Player not found"}, status=404)
-
-
-@csrf_exempt
-def delete_player(request, player_id):
-    """Supprimer un joueur avec son ID Firebase"""
-    if request.method == "DELETE":
-        try:
-            player = Player.objects.get(id=player_id)
-            player.delete()
-            return JsonResponse({"message": "Player deleted"}, status=200)
-        except ObjectDoesNotExist:
-            return JsonResponse({"error": "Player not found"}, status=404)
-
-    return JsonResponse({"error": "Invalid request"}, status=400)
 
 @csrf_exempt
 def update_player(request, player_id):
-    """Met à jour les informations d'un joueur avec son ID Firebase"""
-    if request.method == "PATCH":
+    if request.method == "PUT":
         try:
             player = Player.objects.get(id=player_id)
             data = json.loads(request.body)
 
-            # Mettre à jour uniquement les champs fournis
-            for field, value in data.items():
+            # Mise à jour des champs (uniquement si fournis dans le JSON)
+            for field in data:
                 if hasattr(player, field):
-                    setattr(player, field, value)
+                    setattr(player, field, data[field])
 
             player.save()
-            return JsonResponse({"message": "Player updated successfully"}, status=200)
+            return JsonResponse({"message": "Player modifié avec succès!", "player_id": player.id}, status=200)
 
         except Player.DoesNotExist:
-            return JsonResponse({"error": "Player not found"}, status=404)
-        except json.JSONDecodeError:
-            return JsonResponse({"error": "Invalid JSON"}, status=400)
+            return JsonResponse({"error": "Player non trouvé"}, status=404)
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)
 
-    return JsonResponse({"error": "Invalid request method"}, status=400)
+    return JsonResponse({"error": "Méthode non autorisée"}, status=405)
