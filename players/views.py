@@ -20,7 +20,7 @@ def get_player(request, player_id):
         "rank": player.rank,
         "money": player.money,
         "divin": player.divin,
-        "life": player.life,
+        "life": player.life, 
         "strength": player.strength,
         "speed": player.speed,
         "reach": player.reach,
@@ -131,3 +131,60 @@ def update_player(request, player_id):
             return JsonResponse({"error": str(e)}, status=500)
 
     return JsonResponse({"error": "Méthode non autorisée"}, status=405)
+
+@csrf_exempt
+def get_player_jobs(request, player_id):
+    """Renvoie uniquement les jobs du joueur avec son expérience et sa progression."""
+    try:
+        player = Player.objects.get(id=player_id)
+        return JsonResponse({"jobs": player.experiences}, safe=False)
+    except Player.DoesNotExist:
+        return JsonResponse({"error": "Joueur introuvable"}, status=404)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+    
+
+@csrf_exempt
+def update_player_job(request, player_id, job_name, field):
+    """
+    Met à jour un champ spécifique d'un job pour un joueur donné.
+    """
+    if request.method != "PUT":
+        return JsonResponse({"error": "Méthode non autorisée"}, status=405)
+
+    try:
+        player = Player.objects.get(id=player_id)
+        experiences = player.experiences  # Récupère les expériences du joueur
+
+        if "jobs" not in experiences or job_name not in experiences["jobs"]:
+            return JsonResponse({"error": f"Aucun métier '{job_name}' trouvé pour ce joueur"}, status=404)
+
+        # ✅ Récupérer la valeur depuis le body JSON de la requête
+        try:
+            body = json.loads(request.body)
+            new_value = body.get("new_value", None)
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Format JSON invalide"}, status=400)
+
+        if new_value is None:
+            return JsonResponse({"error": "Aucune valeur fournie"}, status=400)
+
+        # 🔥 Vérification du champ à modifier
+        if field == "progression":
+            if not isinstance(new_value, list) or len(new_value) != 10:
+                return JsonResponse({"error": "La progression doit être une liste de 10 booléens"}, status=400)
+
+        elif field in ["xp", "level"]:
+            try:
+                new_value = int(new_value)  # Conversion en entier
+            except ValueError:
+                return JsonResponse({"error": f"La valeur pour {field} doit être un entier"}, status=400)
+
+        experiences["jobs"][job_name][field] = new_value
+        player.experiences = experiences
+        player.save()
+
+        return JsonResponse({"success": f"{field} de {job_name} mis à jour", "new_value": new_value}, status=200)
+
+    except Player.DoesNotExist:
+        return JsonResponse({"error": "Joueur non trouvé"}, status=404)
