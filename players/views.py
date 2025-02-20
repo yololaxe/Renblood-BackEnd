@@ -188,3 +188,12 @@ def update_player_job(request, player_id, job_name, field):
 
     except Player.DoesNotExist:
         return JsonResponse({"error": "Joueur non trouvé"}, status=404)
+    
+
+def get_players(request, rank):
+    if rank.lower() == "admin":
+        players_data = Player.objects.values("id", "pseudo_minecraft", "name", "surname", "rank", "skill", "description", "money", "divin")
+    else:
+        players_data = Player.objects.values("pseudo_minecraft", "name", "surname", "rank", "skill", "description", "money", "divin")
+
+    return JsonResponse(list(players_data), safe=False)
