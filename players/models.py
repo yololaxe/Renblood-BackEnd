@@ -14,7 +14,7 @@ class Player(models.Model):
     description = models.TextField(blank=True, null=True)
     rank = models.CharField(max_length=255, default="Citoyen")
     money = models.FloatField(default=0.0)
-    divin = models.BooleanField(default=False)
+    divin = models.CharField(max_length=255)
 
     # ✅ Attributs physiques
     life = models.IntegerField(default=10)
@@ -27,7 +27,7 @@ class Player(models.Model):
     regeneration = models.IntegerField(default=1)
 
     # ✅ Traits et Actions
-    trait = models.JSONField(default=list)  
+    traits = models.JSONField(default=list)  
     actions = models.JSONField(default=list)
 
     # ✅ Compétences diverses

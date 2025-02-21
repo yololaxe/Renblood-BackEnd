@@ -4,8 +4,8 @@ from django.core.exceptions import ObjectDoesNotExist
 from .models import Player
 import json
 from django.shortcuts import get_object_or_404
-
-
+from .models import Player
+from jobs.models import Trait, Action
 
 def get_player(request, player_id):
     player = get_object_or_404(Player, id=player_id)
@@ -28,7 +28,7 @@ def get_player(request, player_id):
         "place": player.place,
         "haste": player.haste,
         "regeneration": player.regeneration,
-        "trait": player.trait,
+        "traits": player.traits,
         "actions": player.actions,
         "dodge": player.dodge,
         "discretion": player.discretion,
@@ -78,7 +78,7 @@ def create_player(request):
                 description=data.get("description", ""),
                 rank=data.get("rank", "Citoyen"),
                 money=data.get("money", 0.0),
-                divin=data.get("divin", False),
+                divin=data.get("divin", "Aucun"),
                 life=data.get("life", 10),
                 strength=data.get("strength", 1),
                 speed=data.get("speed", 100),
@@ -192,8 +192,85 @@ def update_player_job(request, player_id, job_name, field):
 
 def get_players(request, rank):
     if rank.lower() == "admin":
-        players_data = Player.objects.values("id", "pseudo_minecraft", "name", "surname", "rank", "skill", "description", "money", "divin")
+        players_data = Player.objects.values()
     else:
         players_data = Player.objects.values("pseudo_minecraft", "name", "surname", "rank", "skill", "description", "money", "divin")
 
     return JsonResponse(list(players_data), safe=False)
+
+
+@csrf_exempt
+def manage_player_traits_actions(request, player_id, category, action):
+    player = get_object_or_404(Player, id=player_id)
+
+    if category not in ["trait", "action"]:
+        return JsonResponse({"error": "Invalid category. Use 'trait' or 'action'."}, status=400)
+
+    try:
+        data = json.loads(request.body.decode("utf-8")) if request.body else {}
+        print(f"🔍 Requête reçue : {data}")  # Debug log
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+    field_name = "traits" if category == "trait" else "actions"
+    id_field = "trait_id" if category == "trait" else "action_id"
+    model = Trait if category == "trait" else Action
+
+    item_id = data.get("id") if request.method == "POST" else request.GET.get("id")
+    if not item_id:
+        return JsonResponse({"error": "Missing 'id' field."}, status=400)
+
+    try:
+        item = model.objects.get(**{id_field: int(item_id)})
+    except model.DoesNotExist:
+        return JsonResponse({"error": f"{category.capitalize()} not found. ID: {item_id}"}, status=404)
+
+    print(f"✅ {category.capitalize()} trouvé : {item}")
+    
+    item_data = {
+        "id": getattr(item, id_field),
+        "Name": item.name,
+        "Bonus": item.bonus if category == "trait" else None,
+        "Description": item.description if category == "action" else None,
+        "Mana": item.mana if category == "action" else None,
+        "Chance": item.chance if category == "action" else None
+    }
+    item_data = {k: v for k, v in item_data.items() if v is not None}  # Supprime les valeurs None
+
+    current_list = getattr(player, field_name, [])
+
+    if action == "add":
+        if any(trait["id"] == int(item_id) for trait in current_list):
+            return JsonResponse({"error": f"{category.capitalize()} already exists for this player"}, status=400)
+        current_list.append(item_data)
+
+    elif action == "delete":
+        current_list = [trait for trait in current_list if trait["id"] != int(item_id)]
+
+    elif action == "edit":
+        new_id = data.get("new_id")
+        if not new_id:
+            return JsonResponse({"error": "Missing 'new_id' field."}, status=400)
+        try:
+            new_item = model.objects.get(**{id_field: int(new_id)})
+        except model.DoesNotExist:
+            return JsonResponse({"error": f"New {category.capitalize()} not found. ID: {new_id}"}, status=404)
+
+        for trait in current_list:
+            if trait["id"] == int(item_id):
+                trait.update({
+                    "id": getattr(new_item, id_field),
+                    "Name": new_item.name,
+                    "Bonus": new_item.bonus if category == "trait" else None,
+                    "Description": new_item.description if category == "action" else None,
+                    "Mana": new_item.mana if category == "action" else None,
+                    "Chance": new_item.chance if category == "action" else None
+                })
+                break
+    else:
+        return JsonResponse({"error": "Invalid action. Use 'add', 'delete', or 'edit'."}, status=400)
+
+    setattr(player, field_name, current_list)
+    player.save()
+
+    return JsonResponse({"message": f"{category.capitalize()} {action}ed successfully", field_name: current_list}, status=200)

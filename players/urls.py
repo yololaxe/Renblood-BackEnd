@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import create_player, get_player, delete_player, update_player, get_player_jobs, update_player_job, get_players
+from .views import create_player, get_player, delete_player, update_player, get_player_jobs, update_player_job, get_players, manage_player_traits_actions
 
 urlpatterns = [
     path('create/', create_player, name="create_player"),
@@ -9,6 +9,8 @@ urlpatterns = [
     path('update/<str:player_id>/', update_player, name="update_player"),
     path("update/<str:player_id>/jobs/<str:job_name>/<str:field>/", update_player_job, name="update_player_job"),
     path("getPlayers/<str:rank>/", get_players, name="get_players"),
+    path('list/<str:player_id>/<str:category>/<str:action>/', manage_player_traits_actions, name='manage_traits_actions'),
+    
     #path("update/<str:player_id>/jobs/<str:job_name>/<str:field>/<str:new_value>/", update_player_job, name="update_player_job"),
     
 

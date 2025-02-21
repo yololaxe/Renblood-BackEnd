@@ -94,3 +94,63 @@ $response = Invoke-WebRequest -Uri "http://127.0.0.1:8000/players/create/" `
     -Headers $headers `
     -Body ([System.Text.Encoding]::UTF8.GetBytes($body)) `
     -UseBasicParsing
+
+
+
+
+//ACTIVER THIBAUT
+$body = @{
+    id = "NyJ3EjfmLpS4MwybkKt8flqj3Ee2"
+    id_minecraft = "ddn-peimos-15335"
+    pseudo_minecraft = "Peimos"
+    name = "Thibaut"
+    surname = "LePasBeau"
+    description = "Tu seras un jour roi des saumons ou pas pasque finalement vive les pantoufles"
+    rank = "Admin"
+    money = 500.0
+    divin = $false
+    life = 15
+    strength = 3
+    speed = 120
+    reach = 6
+    resistance = 2
+    place = 20
+    haste = 85
+    regeneration = 2
+    trait = @("Brave", "Loyal")   # Assurez-vous que c'est bien une liste
+    actions = @("Sword Mastery", "Shield Block")  # Assurez-vous que c'est bien une liste
+    dodge = 4
+    discretion = 2
+    charisma = 5
+    rethoric = 3
+    mana = 80
+    negotiation = 2
+    influence = 4
+    skill = 110
+    experiences = @{
+        jobs = @{
+            lumberjack = @{
+                xp = 1200
+                level = 9
+                progression = @($true, $true, $false, $true, $false, $false, $false, $false, $false, $false)
+                choose_lvl_10 = "/firecamp"
+            }
+            artisan = @{
+                xp = 20
+                level = 4
+                progression = @($false, $false, $false, $false, $false, $false, $false, $false, $false, $false)
+                choose_lvl_10 = "/firecamp"
+            }
+        }
+    }
+} | ConvertTo-Json -Depth 10 -Compress  # 💡 -Compress pour éviter les erreurs d'encodage
+
+# ✅ Envoi de la requête POST
+$response = Invoke-RestMethod -Uri "http://127.0.0.1:8000/players/create/" `
+    -Method POST `
+    -ContentType "application/json" `
+    -Body $body `
+    -UseBasicParsing
+
+# ✅ Afficher la réponse du serveur
+$response
