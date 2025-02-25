@@ -21,7 +21,7 @@ $body = @{
     description = "Joueur test"
     rank = "Seigneur"
     money = 500
-    divin = $true
+    divin = "cc"
 } | ConvertTo-Json -Depth 10
 
 Invoke-WebRequest -Uri "http://127.0.0.1:8000/players/create/" `
@@ -54,7 +54,7 @@ $body = @{
     description = "Un aventurier intrépide."  # Éviter les accents pour tester
     rank = "Chevalier"
     money = 500.0
-    divin = $false
+    divin = "efezafezf"
     life = 15
     strength = 3
     speed = 120
@@ -108,7 +108,7 @@ $body = @{
     description = "Tu seras un jour roi des saumons ou pas pasque finalement vive les pantoufles"
     rank = "Admin"
     money = 500.0
-    divin = $false
+    divin = "qdsfzsf"
     life = 15
     strength = 3
     speed = 120

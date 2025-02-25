@@ -87,7 +87,7 @@ def create_player(request):
                 place=data.get("place", 18),
                 haste=data.get("haste", 78),
                 regeneration=data.get("regeneration", 1),
-                trait=data.get("trait", []),
+                traits=data.get("traits", []),
                 actions=data.get("actions", []),
                 dodge=data.get("dodge", 2),
                 discretion=data.get("discretion", 3),
