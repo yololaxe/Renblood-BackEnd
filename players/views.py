@@ -169,10 +169,10 @@ def update_player_job(request, player_id, job_name, field):
         if new_value is None:
             return JsonResponse({"error": "Aucune valeur fournie"}, status=400)
 
-        # 🔥 Vérification du champ à modifier
+        # 🔥 Vérification et conversion du champ à modifier
         if field == "progression":
-            if not isinstance(new_value, list) or len(new_value) != 10:
-                return JsonResponse({"error": "La progression doit être une liste de 10 booléens"}, status=400)
+            if not isinstance(new_value, list) or not all(isinstance(val, bool) for val in new_value):
+                return JsonResponse({"error": "La progression doit être une liste de booléens"}, status=400)
 
         elif field in ["xp", "level"]:
             try:
@@ -180,14 +180,36 @@ def update_player_job(request, player_id, job_name, field):
             except ValueError:
                 return JsonResponse({"error": f"La valeur pour {field} doit être un entier"}, status=400)
 
+        elif field in ["choose_lvl_10"]:
+            if not isinstance(new_value, str):
+                return JsonResponse({"error": f"La valeur pour {field} doit être une chaîne de caractères"}, status=400)
+
+        elif field == "inter_choice":
+            if not isinstance(new_value, list) or not all(isinstance(val, str) for val in new_value):
+                return JsonResponse({"error": "Les inter_choice doivent être une liste de chaînes de caractères"}, status=400)
+
+        elif field == "mastery":
+            if not isinstance(new_value, list) or not all(isinstance(val, str) for val in new_value):
+                return JsonResponse({"error": "La maîtrise doit être une liste de chaînes de caractères"}, status=400)
+
+        else:
+            return JsonResponse({"error": f"Champ '{field}' non reconnu"}, status=400)
+
+        # ✅ Mise à jour du joueur
         experiences["jobs"][job_name][field] = new_value
         player.experiences = experiences
         player.save()
 
-        return JsonResponse({"success": f"{field} de {job_name} mis à jour", "new_value": new_value}, status=200)
+        return JsonResponse({
+            "success": f"{field} de {job_name} mis à jour",
+            "new_value": new_value
+        }, status=200)
 
     except Player.DoesNotExist:
         return JsonResponse({"error": "Joueur non trouvé"}, status=404)
+
+    except Exception as e:
+        return JsonResponse({"error": f"Erreur serveur : {str(e)}"}, status=500)
     
 
 def get_players(request, rank):

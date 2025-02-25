@@ -5,7 +5,8 @@ class Job(models.Model):
     name = models.CharField(max_length=255)
     skills = models.JSONField(default=dict)  # Stocke les compétences sous forme de JSON
     mastery = models.JSONField(default=list)  # Stocke la maîtrise sous forme de liste
-
+    inter_choice = models.JSONField(default=list)  # Stocke la maîtrise sous forme de liste
+    
     def __str__(self):
         return self.name
     

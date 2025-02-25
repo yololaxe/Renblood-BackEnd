@@ -12,6 +12,7 @@ def get_job_details(request, job_id):
         "id": job._id,
         "name": job.name,
         "skills": job.skills,
+        "inter_choice": job.inter_choice,
         "mastery": job.mastery
     }, safe=False)
 
