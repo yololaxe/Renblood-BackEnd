@@ -305,18 +305,17 @@ from django.shortcuts import get_object_or_404
 
 @api_view(['GET'])
 def get_me(request):
-    uid = request.headers.get('X-Firebase-UID')  # ou en query params/token si tu veux
+    firebase_uid = request.headers.get("X-Firebase-UID")
 
-    if not uid:
+    if not firebase_uid:
         return Response({"error": "UID Firebase manquant."}, status=400)
 
-    player = get_object_or_404(Player, uid=uid)  # adapte selon ton modèle
-    data = {
-        "id": player.id,
-        "email": player.email,
-        "rank": player.rank,
-        "uid": player.uid,
-        # ajoute ce que tu veux
-    }
-
-    return Response(data)
+    try:
+        player = Player.objects.get(id=firebase_uid)  # ✅ CHAMP CORRECT : id
+        return Response({
+            "id": player.id,
+            "rank": player.rank,
+            "pseudo": player.pseudo_minecraft,
+        })
+    except Player.DoesNotExist:
+        return Response({"error": "Utilisateur introuvable."}, status=404)
