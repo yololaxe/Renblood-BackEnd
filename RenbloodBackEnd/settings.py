@@ -63,7 +63,7 @@ CORS_ALLOWED_ORIGINS = [
     "https://renblood-frontend.onrender.com",
     "https://renblood-website.web.app"
 ]
-CORS_ALLOW_ALL_ORIGINS = True  # ⚠️ à ne pas laisser en prod
+# CORS_ALLOW_ALL_ORIGINS = True  # ⚠️ à ne pas laisser en prod
 
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_METHODS = [
