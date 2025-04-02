@@ -296,3 +296,27 @@ def manage_player_traits_actions(request, player_id, category, action):
     player.save()
 
     return JsonResponse({"message": f"{category.capitalize()} {action}ed successfully", field_name: current_list}, status=200)
+
+# views.py
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from .models import Player  # ou User si c'est le modèle
+from django.shortcuts import get_object_or_404
+
+@api_view(['GET'])
+def get_me(request):
+    uid = request.headers.get('X-Firebase-UID')  # ou en query params/token si tu veux
+
+    if not uid:
+        return Response({"error": "UID Firebase manquant."}, status=400)
+
+    player = get_object_or_404(Player, uid=uid)  # adapte selon ton modèle
+    data = {
+        "id": player.id,
+        "email": player.email,
+        "rank": player.rank,
+        "uid": player.uid,
+        # ajoute ce que tu veux
+    }
+
+    return Response(data)
