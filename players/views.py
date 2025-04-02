@@ -298,24 +298,23 @@ def manage_player_traits_actions(request, player_id, category, action):
     return JsonResponse({"message": f"{category.capitalize()} {action}ed successfully", field_name: current_list}, status=200)
 
 # views.py
-from rest_framework.decorators import api_view
-from rest_framework.response import Response
 from .models import Player  # ou User si c'est le modèle
 from django.shortcuts import get_object_or_404
 
-@api_view(['GET'])
-def get_me(request):
-    firebase_uid = request.headers.get("X-Firebase-UID")
+from django.http import JsonResponse
+from players.models import Player
 
+def get_me(request, firebase_uid=None):
     if not firebase_uid:
-        return Response({"error": "UID Firebase manquant."}, status=400)
+        return JsonResponse({"error": "Firebase UID manquant"}, status=400)
 
     try:
-        player = Player.objects.get(id=firebase_uid)  # ✅ CHAMP CORRECT : id
-        return Response({
+        player = Player.objects.get(id=firebase_uid)
+        return JsonResponse({
             "id": player.id,
             "rank": player.rank,
-            "pseudo": player.pseudo_minecraft,
+            "pseudo_minecraft": player.pseudo_minecraft,
         })
     except Player.DoesNotExist:
-        return Response({"error": "Utilisateur introuvable."}, status=404)
+        return JsonResponse({"error": "Joueur introuvable"}, status=404)
+
