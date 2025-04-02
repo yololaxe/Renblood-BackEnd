@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/3.1/ref/settings/
 from pathlib import Path
 import os
 from dotenv import load_dotenv
+from corsheaders.defaults import default_headers
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -64,6 +65,10 @@ CORS_ALLOWED_ORIGINS = [
     "https://renblood-website.web.app"
 ]
 # CORS_ALLOW_ALL_ORIGINS = True  # ⚠️ à ne pas laisser en prod
+
+CORS_ALLOW_HEADERS = list(default_headers) + [
+    "x-firebase-uid",  # ✅ Ajoute ton header personnalisé
+]
 
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_METHODS = [
