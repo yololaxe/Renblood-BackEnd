@@ -1,9 +1,9 @@
-from django.shortcuts import render
-from django.http import JsonResponse
-from django.shortcuts import get_object_or_404
-from .models import Job
-from django.views.decorators.csrf import csrf_exempt
-from jobs.models import Trait, Action
+# from django.shortcuts import render
+# from django.http import JsonResponse
+# from django.shortcuts import get_object_or_404
+# from .models import Job
+# from django.views.decorators.csrf import csrf_exempt
+# from jobs.models import Trait, Action
 
 # Create your views here.
 def get_job_details(request, job_id):
@@ -16,20 +16,20 @@ def get_job_details(request, job_id):
         "mastery": job.mastery
     }, safe=False)
 
-@csrf_exempt
-def get_traits_or_actions(request, category):
-    """Renvoie la liste des traits, actions, ou les deux selon le paramètre dans l'URL."""
+# @csrf_exempt
+# def get_traits_or_actions(request, category):
+#     """Renvoie la liste des traits, actions, ou les deux selon le paramètre dans l'URL."""
     
-    if category == "traits":
-        data = list(Trait.objects.values("trait_id", "name", "bonus"))
-    elif category == "actions":
-        data = list(Action.objects.values("action_id", "name", "description", "mana", "chance"))
-    elif category == "all":
-        data = {
-            "traits": list(Trait.objects.values("trait_id", "name", "bonus")),
-            "actions": list(Action.objects.values("action_id", "name", "description", "mana", "chance"))
-        }
-    else:
-        return JsonResponse({"error": "Invalid category. Use 'traits', 'actions', or 'all'."}, status=400)
+#     if category == "traits":
+#         data = list(Trait.objects.values("trait_id", "name", "bonus"))
+#     elif category == "actions":
+#         data = list(Action.objects.values("action_id", "name", "description", "mana", "chance"))
+#     elif category == "all":
+#         data = {
+#             "traits": list(Trait.objects.values("trait_id", "name", "bonus")),
+#             "actions": list(Action.objects.values("action_id", "name", "description", "mana", "chance"))
+#         }
+#     else:
+#         return JsonResponse({"error": "Invalid category. Use 'traits', 'actions', or 'all'."}, status=400)
 
-    return JsonResponse(data, safe=False, status=200)
+#     return JsonResponse(data, safe=False, status=200)

@@ -1,7 +1,16 @@
-from django.urls import path
-from .views import get_job_details, get_traits_or_actions
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
+from jobs.viewsets.job_viewset import JobViewSet
+from jobs.viewsets.trait_viewset import TraitViewSet
+from jobs.viewsets.action_viewset import ActionViewSet
+from jobs.viewsets.global_viewset import GlobalViewSet
+
+router = DefaultRouter()
+router.register(r'jobs', JobViewSet, basename='job')
+router.register(r'trait', TraitViewSet, basename='trait')
+router.register(r'action', ActionViewSet, basename='action')
+router.register(r'globals', GlobalViewSet, basename='global')
 
 urlpatterns = [
-    path('<str:job_id>/', get_job_details, name='get_job_details'),
-    path("get/<str:category>/", get_traits_or_actions, name="get_traits_or_actions"),
+    path('', include(router.urls)),
 ]
