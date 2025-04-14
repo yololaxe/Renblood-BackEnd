@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     "corsheaders",
     'players',  # Ajout de l'application
     'jobs',
+    'channels'
 ]
 
 
@@ -69,6 +70,17 @@ CORS_ALLOWED_ORIGINS = [
 CORS_ALLOW_HEADERS = list(default_headers) + [
     "x-firebase-uid",  # ✅ Ajoute ton header personnalisé
 ]
+
+ASGI_APPLICATION = 'RenbloodBackEnd.asgi.application'
+
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [("localhost", 6379)],
+        },
+    },
+}
 
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_METHODS = [

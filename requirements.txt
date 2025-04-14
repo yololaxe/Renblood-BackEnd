@@ -10,3 +10,5 @@ pymongo==3.12.3  # Version compatible avec Djongo
 psycopg2
 dotenv
 djangorestframework
+channels 
+channels_redis
