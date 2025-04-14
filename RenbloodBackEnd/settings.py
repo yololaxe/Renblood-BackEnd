@@ -63,6 +63,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:5175",
     "http://127.0.0.1:5173",
     "https://renblood-frontend.onrender.com",
+    "renblood-backend-production.up.railway.app",
     "https://renblood-website.web.app"
 ]
 # CORS_ALLOW_ALL_ORIGINS = True  # ⚠️ à ne pas laisser en prod
