@@ -70,7 +70,8 @@ CORS_ALLOWED_ORIGINS = [
 # CORS_ALLOW_ALL_ORIGINS = True  # ⚠️ à ne pas laisser en prod
 
 CORS_ALLOW_HEADERS = list(default_headers) + [
-    "x-firebase-uid",  # ✅ Ajoute ton header personnalisé
+    "x-firebase-uid",
+    "x-api-key",
 ]
 
 ASGI_APPLICATION = 'RenbloodBackEnd.asgi.application'
