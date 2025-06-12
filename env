@@ -1,0 +1,5 @@
+MONGO_DB_NAME=renblood_mongo
+MONGO_DB_URI=mongodb+srv://yololaxe:8SYV3TCYGqb3xLvy@renblood-data.p14a6.mongodb.net/?retryWrites=true&w=majority&tls=true
+DJANGO_SECRET_KEY=76b4c05e50d110141c57a9b56a9d5e3e
+VITE_WS_URL=wss://renblood-backend-production.up.railway.app/ws
+API_KEY_RENBLOOD=12fba931-286f-489c-82d3-c22511291508

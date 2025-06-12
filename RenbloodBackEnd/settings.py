@@ -25,6 +25,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = '7i$q*aq)$3solh4xc_)8z$m2wqfmm&6+=!-kg5o$j9%v+c3ikp'
+API_KEY_RENBLOOD = os.getenv("API_KEY_RENBLOOD")
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -121,7 +122,6 @@ AUTHENTICATION_BACKENDS = [
 load_dotenv()
 
 
-import os
 
 DATABASES = {
     'default': {
