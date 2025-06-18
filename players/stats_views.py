@@ -1,7 +1,6 @@
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework import status, viewsets
-from django.db import transaction
 from django.shortcuts import get_object_or_404
 
 from players.models import Player, CHARACTERISTICS
@@ -41,68 +40,74 @@ class PlayerStatsViewSet(viewsets.ViewSet):
     def initialize_stats_bonus(self, request, pk=None):
         player = self.get_player(pk)
 
-        # 1) conserve seulement les bonus Admin existants
-        existing = {
-            stat: info
-            for stat, info in (player.real_charact or {}).items()
-            if info.get("type") == "Admin"
-        }
-        # 2) calcule tous les bonus talent_tree d’un coup
-        talent_bonuses = self._extract_talent_tree_bonus(player)
-        existing.update(talent_bonuses)
+        # 1) on récupère tous les bonus 'Admin' (qui peuvent être dans un dict ou dans une liste)
+        existing: dict[str, list] = {}
+        for stat, info in (player.real_charact or {}).items():
+            if isinstance(info, dict):
+                if info.get("type") == "Admin":
+                    existing.setdefault(stat, []).append(info)
+            elif isinstance(info, list):
+                admins = [b for b in info if b.get("type") == "Admin"]
+                if admins:
+                    existing.setdefault(stat, []).extend(admins)
 
+        # 2) on calcule les bonus talent_tree (liste par stat)
+        talent_bonuses = self._extract_talent_tree_bonus(player)
+
+        # 3) on étend la liste existante avec les nouveaux bonus
+        for stat, bonus_list in talent_bonuses.items():
+            existing.setdefault(stat, []).extend(bonus_list)
+
+        # 4) on enregistre
         player.real_charact = existing
         player.save(update_fields=["real_charact"])
         return Response({"real_charact": existing}, status=200)
 
+
     def _extract_talent_tree_bonus(self, player):
         """
-        Parcourt chaque job dans player.experiences.jobs,
-        charge en lot tous les Job (_id, skills, inter_choice, mastery),
-        puis calcule les COMP-… débloqués.
+        Pour chaque job :
+          - on aplatit skills + inter_choice + mastery
+          - on somme tous les COMP-<stat>_<val> débloqués
+          - on retourne { stat_key: [ { count: total_par_job, type: 'talent_tree_<job>' }, … ] }
         """
         exp_jobs = player.experiences.get("jobs", {}) or {}
-        job_names = list(exp_jobs.keys())
-        if not job_names:
+        if not exp_jobs:
             return {}
 
-        # Charge en batch; on ne prend QUE les champs existants
-        job_qs = Job.objects.filter(_id__in=job_names).values(
+        # on peut precharger tous les Docs en une requête
+        job_qs = Job.objects.filter(_id__in=exp_jobs.keys()).values(
             "_id", "skills", "inter_choice", "mastery"
         )
         job_map = {j["_id"]: j for j in job_qs}
 
         bonuses = {}
+
         for job_name, job_data in exp_jobs.items():
-            progression = job_data.get("progression") or []
+            prog = job_data.get("progression") or []
             job_doc = job_map.get(job_name)
             if not job_doc:
                 continue
 
-            # On aplatit choice_1/choice_2/choice_3 depuis skills JSON
+            # aplatir
             flat = []
             skills = job_doc.get("skills") or {}
-            for choice_field in ("choice_1", "choice_2", "choice_3"):
-                flat.extend(skills.get(choice_field) or [])
-
-            # On ajoute inter_choice s'il y en a
+            for fld in ("choice_1", "choice_2", "choice_3"):
+                flat.extend(skills.get(fld) or [])
             for cmd in (job_doc.get("inter_choice") or []):
                 flat.append({"name": cmd})
-
-            # Enfin mastery
             for cmd in (job_doc.get("mastery") or []):
                 flat.append({"name": cmd})
 
-            # Parcours de progression
-            for idx, unlocked in enumerate(progression):
+            # accumulateur pour CE métier
+            accum = {}
+
+            for idx, unlocked in enumerate(prog):
                 if not unlocked or idx >= len(flat):
                     continue
-
-                entry = flat[idx]
-                name = entry.get("name") if isinstance(entry, dict) else str(entry)
+                name = flat[idx].get("name", "") if isinstance(flat[idx], dict) else str(flat[idx])
                 if not name.startswith("COMP-"):
                     continue
-
                 try:
                     _, rest = name.split("COMP-", 1)
                     stat_key, val_str = rest.split("_", 1)
@@ -110,11 +115,17 @@ class PlayerStatsViewSet(viewsets.ViewSet):
                 except ValueError:
                     continue
 
-                if stat_key in CHARACTERISTICS:
-                    curr = bonuses.get(stat_key)
-                    if curr:
-                        curr["count"] += val
-                    else:
-                        bonuses[stat_key] = {"count": val, "type": "talent_tree"}
+                # filtre selon votre liste de clés
+                if stat_key not in CHARACTERISTICS:
+                    continue
+
+                accum[stat_key] = accum.get(stat_key, 0) + val
+
+            # pour chaque stat de ce job, on crée un objet bonus
+            for stat_key, total in accum.items():
+                bonuses.setdefault(stat_key, []).append({
+                    "count": total,
+                    "type": f"talent_tree_{job_name}"
+                })
 
         return bonuses

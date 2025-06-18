@@ -1,4 +1,4 @@
-    from django.http import JsonResponse
+from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.core.exceptions import ObjectDoesNotExist
 from .models import Player
@@ -7,6 +7,10 @@ from django.shortcuts import get_object_or_404
 from .models import Player
 from jobs.models import Trait, Action
 from players.stats_views import PlayerStatsViewSet
+
+
+
+
 def get_player(request, player_id):
     player = get_object_or_404(Player, id=player_id)
 
@@ -415,6 +419,8 @@ def update_job_level(request, player_id, job_name):
 
 
 
+
+
 def player_full_profile(request, player_id):
     """
     GET /players/stats/<player_id>/full_profile/
@@ -436,21 +442,40 @@ def player_full_profile(request, player_id):
 
     player.experiences = experiences
 
-    # 2️⃣ Recalculer real_charact
-    existing_admin = {
-        stat: info
-        for stat, info in (player.real_charact or {}).items()
-        if info.get("type") == "Admin"
-    }
+    # 2️⃣ Recalculer real_charact en conservant les Admin existants
+    raw = player.real_charact or {}
+    existing_admin: dict[str, list] = {}
+    for stat, info in raw.items():
+        if isinstance(info, dict):
+            # cas simple : on a un seul dict
+            if info.get("type") == "Admin":
+                existing_admin.setdefault(stat, []).append(info)
+        elif isinstance(info, list):
+            # cas tableau : on filtre tous les Admin
+            for entry in info:
+                if entry.get("type") == "Admin":
+                    existing_admin.setdefault(stat, []).append(entry)
+
+    # 3️⃣ Récupérer les bonus TalentTree
     ps_vs = PlayerStatsViewSet()
     talent_bonuses = ps_vs._extract_talent_tree_bonus(player)
-    real_charact = {**existing_admin, **talent_bonuses}
+    # talent_bonuses est de la forme { stat: [ {count,type}, ... ], ... }
+
+    # 4️⃣ Fusionner Admin + TalentTree (tous en listes)
+    real_charact: dict[str, list] = {}
+    # d'abord les Admin
+    for stat, lst in existing_admin.items():
+        real_charact[stat] = lst.copy()
+    # puis on étend avec les TalentTree
+    for stat, lst in talent_bonuses.items():
+        real_charact.setdefault(stat, []).extend(lst)
+
     player.real_charact = real_charact
 
-    # 3️⃣ Sauvegarde en une seule opération
+    # 5️⃣ Sauvegarde en une seule opération
     player.save(update_fields=["experiences", "real_charact"])
 
-    # 4️⃣ Construit la réponse complète
+    # 6️⃣ Construit la réponse complète
     response_data = {
         "id": player.id,
         "id_minecraft": player.id_minecraft,
@@ -486,3 +511,4 @@ def player_full_profile(request, player_id):
     }
 
     return JsonResponse(response_data, status=200)
+
