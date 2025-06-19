@@ -31,6 +31,7 @@ INSTALLED_APPS = [
     "corsheaders",
     'players',  # Ajout de l'application
     'jobs',
+    'game_sessions',
     'channels'
 ]
 
