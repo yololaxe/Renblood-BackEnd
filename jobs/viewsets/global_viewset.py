@@ -64,3 +64,16 @@ class GlobalViewSet(viewsets.ModelViewSet):
             serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=400)
+
+    @action(detail=False, methods=['get'], url_path='active-state')
+    def get_active_state(self, request):
+        """
+        GET /stats/sessions/active-state/
+        Renvoie uniquement { one_session_state: bool }
+        """
+        from jobs.models.globals import Global
+        g = Global.objects.first()
+        return Response(
+            {"one_session_state": bool(g and g.one_session_state)},
+            status=status.HTTP_200_OK
+        )

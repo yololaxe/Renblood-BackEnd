@@ -1,3 +1,5 @@
+# game_sessions/serializers/session_serializer.py
+
 from rest_framework import serializers
 from game_sessions.models.session import Session
 
@@ -8,11 +10,17 @@ class SessionSerializer(serializers.ModelSerializer):
     futures_players = serializers.SerializerMethodField()
 
     class Meta:
-        model  = Session
+        model = Session
         fields = [
-            'id', 'year', 'season', 'date',
-            'players_count', 'futures_count',
-            'players', 'futures_players',
+            'id',
+            'year',
+            'season',
+            'created_date',
+            'session_date',
+            'players_count',
+            'futures_count',
+            'players',
+            'futures_players',
         ]
 
     def get_players(self, session):
