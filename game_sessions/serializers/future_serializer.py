@@ -106,3 +106,14 @@ class FutureSerializer(serializers.ModelSerializer):
         tpl = TEMPLATE_MAP.get(validated_data["type"], {})
         validated_data.update(tpl)
         return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        # Si le type change, on réinjecte tout le tpl
+        new_type = validated_data.get("type", None)
+        if new_type and new_type != instance.type:
+            tpl = TEMPLATE_MAP.get(new_type, {})
+            # applique chaque champ du template sur l'instance
+            for field, value in tpl.items():
+                setattr(instance, field, value)
+        # puis on laisse DRF mettre à jour les autres champs (type, answer…)
+        return super().update(instance, validated_data)

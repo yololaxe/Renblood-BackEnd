@@ -74,3 +74,48 @@ class FutureViewSet(viewsets.ModelViewSet):
 
         serializer = self.get_serializer(future)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+    @action(detail=True, methods=["patch"], url_path="update-future")
+    def update_future(self, request, pk=None):
+        """
+        PATCH /sessions/futures/{id}/update-future/
+        Met à jour la réponse de la future.
+        """
+        future = get_object_or_404(Future, pk=pk)
+        # Vérifier que c'est bien le joueur propriétaire
+        if future.player.id != request.user.id:
+            return Response({"detail": "Non autorisé"}, status=status.HTTP_403_FORBIDDEN)
+        serializer = self.get_serializer(future, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(detail=False,methods=["get"],url_path="players-with-futures",)
+    def players_with_futures(self, request):
+        session_id = request.query_params.get("session")
+        if not session_id:
+            return Response(
+                {"error": "Le paramètre session est requis"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        session = get_object_or_404(Session, pk=session_id)
+        players = session.players.all()
+        futures = Future.objects.filter(session=session)
+        future_map = {f.player_id: f for f in futures}
+
+        out = []
+        for p in players:
+            player_data = {
+                "id": p.id,
+                "name": p.name,
+                "pseudo_minecraft": getattr(p, "pseudo_minecraft", None),
+            }
+            f = future_map.get(p.id)
+            future_data = FutureSerializer(f).data if f else None
+            out.append({
+                "player": player_data,
+                "future": future_data
+            })
+
+        return Response(out, status=status.HTTP_200_OK)

@@ -1,10 +1,16 @@
-# game_sessions/models/future.py
-
+import uuid
 from django.db import models
 from players.models import Player
 from game_sessions.models.session import Session
 
 class Future(models.Model):
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False,
+        help_text="Clé primaire unique (UUID) générée automatiquement"
+    )
+
     TYPE_EXPLORATION     = "exploration"
     TYPE_CONSTRUCTION    = "construction"
     TYPE_CAISSE_ROYALE   = "caisse_royale"
