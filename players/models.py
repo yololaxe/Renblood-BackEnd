@@ -63,6 +63,11 @@ class Player(models.Model):
     influence = models.IntegerField(default=1)
     skill = models.IntegerField(default=100)
 
+    discord_id = models.CharField(max_length=64, blank=True, null=True)
+    discord_username = models.CharField(max_length=100, blank=True, null=True)
+    discord_discriminator = models.CharField(max_length=10, blank=True, null=True)
+    discord_avatar = models.CharField(max_length=255, blank=True, null=True)
+
     # Format des expériences
     experiences = models.JSONField(default=default_jobs_experience)
 
