@@ -14,7 +14,13 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = '7i$q*aq)$3solh4xc_)8z$m2wqfmm&6+=!-kg5o$j9%v+c3ikp'
 API_KEY_RENBLOOD = os.getenv("API_KEY_RENBLOOD")
-
+DISCORD_CLIENT_ID       = os.getenv("DISCORD_CLIENT_ID")
+DISCORD_CLIENT_SECRET   = os.getenv("DISCORD_CLIENT_SECRET")
+DISCORD_REDIRECT_URI    = os.getenv("DISCORD_REDIRECT_URI")
+DISCORD_BOT_TOKEN       = os.getenv("DISCORD_BOT_TOKEN")
+DISCORD_GUILD_ID        = os.getenv("DISCORD_GUILD_ID")
+DISCORD_ROLE_ID         = os.getenv("DISCORD_ROLE_ID")
+FRONTEND_URL            = os.getenv("FRONTEND_URL")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
@@ -32,6 +38,7 @@ INSTALLED_APPS = [
     'players',  # Ajout de l'application
     'jobs',
     'game_sessions',
+    'rest_framework',
     'channels'
 ]
 

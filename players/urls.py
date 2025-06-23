@@ -4,10 +4,11 @@ from .views import create_player, player_full_profile, get_player, delete_player
     deposit_player
 from rest_framework.routers import DefaultRouter
 from players.stats_views import PlayerStatsViewSet
-
+from .views_discord import DiscordViewSet
 
 router = DefaultRouter()
 router.register(r"stats", PlayerStatsViewSet, basename="player-stats")
+router.register(r'discord', DiscordViewSet, basename='discord')
 
 urlpatterns = [
     path('create/', create_player, name="create_player"),

@@ -13,3 +13,5 @@ djangorestframework
 daphne
 channels 
 channels_redis
+discord
+requests
