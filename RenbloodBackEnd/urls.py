@@ -8,7 +8,7 @@ def home(request):
 
 
 urlpatterns = [
-    path("", home),
+    path("ping/", home),
     path('admin/', admin.site.urls),
     path('players/', include('players.urls')),
     path('stats/', include('jobs.urls')),

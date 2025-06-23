@@ -5,12 +5,11 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="7ed89631-3321-45cc-8c35-f6884484910c" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/Renblood-BackEnd.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/Renblood-BackEnd.iml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/material_theme_project_new.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/material_theme_project_new.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/game_sessions/migrations/0004_future_chance_future_type_alter_future_answer_and_more.py" beforeDir="false" afterPath="$PROJECT_DIR$/game_sessions/migrations/0004_future_chance_future_type_alter_future_answer_and_more.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/game_sessions/models/future.py" beforeDir="false" afterPath="$PROJECT_DIR$/game_sessions/models/future.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/game_sessions/serializers/future_serializer.py" beforeDir="false" afterPath="$PROJECT_DIR$/game_sessions/serializers/future_serializer.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/game_sessions/viewsets/future_viewset.py" beforeDir="false" afterPath="$PROJECT_DIR$/game_sessions/viewsets/future_viewset.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/RenbloodBackEnd/urls.py" beforeDir="false" afterPath="$PROJECT_DIR$/RenbloodBackEnd/urls.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/players/urls.py" beforeDir="false" afterPath="$PROJECT_DIR$/players/urls.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/players/views.py" beforeDir="false" afterPath="$PROJECT_DIR$/players/views.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -20,35 +19,35 @@
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
-  <component name="ProjectColorInfo"><![CDATA[{
-  "associatedIndex": 3
-}]]></component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 3
+}</component>
   <component name="ProjectId" id="2ymOx4u67L12tQps7yTONbMFmeP" />
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "ASKED_SHARE_PROJECT_CONFIGURATION_FILES": "true",
-    "Django Server.Run.executor": "Run",
-    "ModuleVcsDetector.initialDetectionPerformed": "true",
-    "Python.manage.py runserver.executor": "Run",
-    "Python.python manage.py runserver.executor": "Run",
-    "RunOnceActivity.OpenDjangoStructureViewOnStart": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "git-widget-placeholder": "main",
-    "last_opened_file_path": "D:/Projets/Projet/Renblood-BackEnd",
-    "node.js.detected.package.eslint": "true",
-    "node.js.detected.package.tslint": "true",
-    "node.js.selected.package.eslint": "(autodetect)",
-    "node.js.selected.package.tslint": "(autodetect)",
-    "nodejs_package_manager_path": "npm",
-    "settings.editor.selected.configurable": "com.intellij.python.django.customization.DjangoModulesConfigurable",
-    "vue.rearranger.settings.migration": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;ASKED_SHARE_PROJECT_CONFIGURATION_FILES&quot;: &quot;true&quot;,
+    &quot;Django Server.Run.executor&quot;: &quot;Run&quot;,
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;Python.manage.py runserver.executor&quot;: &quot;Run&quot;,
+    &quot;Python.python manage.py runserver.executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.OpenDjangoStructureViewOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;last_opened_file_path&quot;: &quot;D:/Projets/Projet/Renblood-BackEnd&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;com.intellij.python.django.customization.DjangoModulesConfigurable&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
-}]]></component>
+}</component>
   <component name="RunManager">
     <configuration name="Run" type="Python.DjangoServer" factoryName="Django server">
       <module name="Renblood-BackEnd" />
@@ -92,7 +91,9 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1750436524780</updated>
-      <workItem from="1750436525891" duration="1932000" />
+      <workItem from="1750436525891" duration="3455000" />
+      <workItem from="1750503336422" duration="9793000" />
+      <workItem from="1750597442308" duration="2366000" />
     </task>
     <servers />
   </component>

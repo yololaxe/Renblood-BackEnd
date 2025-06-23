@@ -512,3 +512,68 @@ def player_full_profile(request, player_id):
 
     return JsonResponse(response_data, status=200)
 
+def get_player_by_minecraft(request, mc_id):
+    """
+    GET /players/getByMinecraft/<mc_id>/
+    Renvoie toutes les données d'un joueur à partir de son id_minecraft.
+    """
+    player = get_object_or_404(Player, id_minecraft=mc_id)
+
+    response_data = {
+        "id": player.id,
+        "id_minecraft": player.id_minecraft,
+        "pseudo_minecraft": player.pseudo_minecraft,
+        "name": player.name,
+        "surname": player.surname,
+        "description": player.description,
+        "rank": player.rank,
+        "money": player.money,
+        "divin": player.divin,
+        "life": player.life,
+        "strength": player.strength,
+        "speed": player.speed,
+        "reach": player.reach,
+        "resistance": player.resistance,
+        "place": player.place,
+        "haste": player.haste,
+        "regeneration": player.regeneration,
+        "dodge": player.dodge,
+        "discretion": player.discretion,
+        "charisma": player.charisma,
+        "rethoric": player.rethoric,
+        "mana": player.mana,
+        "negotiation": player.negotiation,
+        "influence": player.influence,
+        "skill": player.skill,
+        "real_charact": player.real_charact or {},
+        "experiences": player.experiences,
+        "traits": player.traits,
+        "actions": player.actions,
+    }
+
+    return JsonResponse(response_data)
+
+@csrf_exempt
+def deposit_player(request, player_id):
+    if request.method != "POST":
+        return JsonResponse({"error": "Méthode non autorisée"}, status=405)
+
+    try:
+        player = Player.objects.get(id_minecraft=player_id)
+    except Player.DoesNotExist:
+        return JsonResponse({"error": "Joueur introuvable"}, status=404)
+
+    try:
+        data = json.loads(request.body)
+        amount = int(data.get("amount", 0))
+    except (ValueError, KeyError):
+        return JsonResponse({"error": "Montant invalide"}, status=400)
+
+    # on ajoute et on sauve
+    player.money += amount
+    player.save(update_fields=["money"])
+
+    return JsonResponse({
+        "message": "Dépôt reçu",
+        "new_balance": player.money
+    }, status=200)
