@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     'players',  # Ajout de l'application
     'jobs',
     'game_sessions',
+    'rest_framework',
     'channels'
 ]
 
