@@ -68,56 +68,102 @@ def delete_player(request, player_id):
     return JsonResponse({"error": "Invalid request"}, status=400)
 
 
+import json
+from django.views.decorators.csrf import csrf_exempt
+from django.http import JsonResponse
+from .models import Player, CHARACTERISTICS, default_real_charact
+
 @csrf_exempt
 def create_player(request):
-    if request.method == "POST":
-        try:
-            data = json.loads(request.body)
+    if request.method != "POST":
+        return JsonResponse({"error": "Méthode non autorisée"}, status=405)
 
-            # Vérification et formatage des expériences
-            experiences = data.get("experiences", {})
-            if "jobs" not in experiences:
-                experiences = {"jobs": {}}
+    try:
+        data = json.loads(request.body)
 
-            player = Player.objects.create(
-                id=data["id"],
-                id_minecraft=data["id_minecraft"],
-                pseudo_minecraft=data["pseudo_minecraft"],
-                name=data["name"],
-                surname=data["surname"],
-                description=data.get("description", ""),
-                rank=data.get("rank", "Citoyen"),
-                money=data.get("money", 0.0),
-                divin=data.get("divin", "Aucun"),
-                life=data.get("life", 10),
-                strength=data.get("strength", 1),
-                speed=data.get("speed", 100),
-                reach=data.get("reach", 5),
-                resistance=data.get("resistance", 0),
-                place=data.get("place", 18),
-                haste=data.get("haste", 78),
-                regeneration=data.get("regeneration", 1),
-                traits=data.get("traits", []),
-                actions=data.get("actions", []),
-                dodge=data.get("dodge", 2),
-                discretion=data.get("discretion", 3),
-                charisma=data.get("charisma", 1),
-                rethoric=data.get("rethoric", 1),
-                mana=data.get("mana", 100),
-                negotiation=data.get("negotiation", 0),
-                influence=data.get("influence", 1),
-                skill=data.get("skill", 100),
-                experiences=experiences
-            )
+        # ———————— Préparation des JSONFields ————————
 
-            return JsonResponse({"message": "Player ajouté avec succès!", "player_id": player.id}, status=201)
+        # Experiences jobs
+        experiences = data.get("experiences", {})
+        if "jobs" not in experiences or not isinstance(experiences["jobs"], dict):
+            experiences = {"jobs": {}}
 
-        except KeyError as e:
-            return JsonResponse({"error": f"Champ manquant: {str(e)}"}, status=400)
-        except Exception as e:
-            return JsonResponse({"error": str(e)}, status=500)
+        # real_charact : doit être un dict de listes de {count, type}
+        real_charact = data.get("real_charact", None)
+        if real_charact is None or not isinstance(real_charact, dict):
+            real_charact = default_real_charact()
+        else:
+            # On peut filtrer et valider sommairement ici si besoin
+            # (la validation fine se fait via les validators du modèle)
+            filtered = {}
+            for key, entries in real_charact.items():
+                if key in CHARACTERISTICS and isinstance(entries, list):
+                    filtered[key] = [
+                        { "count": int(e.get("count", 0)), "type": str(e.get("type", "")) }
+                        for e in entries
+                        if isinstance(e, dict)
+                    ]
+            real_charact = filtered
 
-    return JsonResponse({"error": "Méthode non autorisée"}, status=405)
+        # ———————— Création du joueur ————————
+        player = Player.objects.create(
+            id              = data["id"],
+            id_minecraft    = data["id_minecraft"],
+            pseudo_minecraft= data["pseudo_minecraft"],
+            name            = data.get("name", ""),
+            surname         = data.get("surname", ""),
+            description     = data.get("description", ""),
+            rank            = data.get("rank", "Citoyen"),
+            money           = float(data.get("money", 0.0)),
+            divin           = data.get("divin", "Aucun"),
+
+            # Attributs physiques
+            life            = int(data.get("life", 10)),
+            strength        = int(data.get("strength", 1)),
+            speed           = int(data.get("speed", 100)),
+            reach           = int(data.get("reach", 5)),
+            resistance      = int(data.get("resistance", 0)),
+            place           = int(data.get("place", 18)),
+            haste           = int(data.get("haste", 78)),
+            regeneration    = int(data.get("regeneration", 1)),
+
+            # Traits et actions
+            traits          = data.get("traits", []),
+            actions         = data.get("actions", []),
+
+            # Compétences diverses
+            dodge           = int(data.get("dodge", 2)),
+            discretion      = int(data.get("discretion", 3)),
+            charisma        = int(data.get("charisma", 1)),
+            rethoric        = int(data.get("rethoric", 1)),
+            mana            = int(data.get("mana", 100)),
+            negotiation     = int(data.get("negotiation", 0)),
+            influence       = int(data.get("influence", 1)),
+            skill           = int(data.get("skill", 100)),
+
+            # Discord
+            discord_id          = data.get("discord_id"),
+            discord_username    = data.get("discord_username"),
+            discord_discriminator = data.get("discord_discriminator"),
+            discord_avatar      = data.get("discord_avatar"),
+
+            # JSONFields
+            experiences     = experiences,
+            real_charact    = real_charact,
+        )
+
+        return JsonResponse({
+            "message": "Player ajouté avec succès !",
+            "player_id": player.id
+        }, status=201)
+
+    except KeyError as e:
+        return JsonResponse(
+            {"error": f"Champ obligatoire manquant : {e.args[0]}"},
+            status=400
+        )
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
 
 
 def _set_nested(data: dict, keys: list, value):
