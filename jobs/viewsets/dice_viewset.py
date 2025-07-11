@@ -1,42 +1,38 @@
-# backend Django – views.py
+import json
 import random
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
-from channels.layers import get_channel_layer
-from asgiref.sync import async_to_sync
+from channels.generic.websocket import AsyncWebsocketConsumer
 
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def roll_dice(request):
-    user = request.user
+class DiceConsumer(AsyncWebsocketConsumer):
+    async def connect(self):
+        await self.channel_layer.group_add("dice_room", self.channel_name)
+        await self.accept()
 
-    if getattr(user, "rank", "").lower() != "admin":
-        return Response(
-            {"detail": "Accès refusé. Réservé aux administrateurs."},
-            status=403
-        )
+    async def disconnect(self, close_code):
+        await self.channel_layer.group_discard("dice_room", self.channel_name)
 
-    data = request.data
-    # Récupère les bornes et le mod si fournis, sinon défaut 1–20 et mod 0
-    min_val = int(data.get("min", 1))
-    max_val = int(data.get("max", 20))
-    mod     = int(data.get("mod", 0))
+    async def receive(self, text_data):
+        data = json.loads(text_data)
+        if data.get("type") == "roll":
+            # récupère min/max/mod, avec valeurs par défaut
+            min_val = int(data.get("min", 1))
+            max_val = int(data.get("max", 20))
+            mod     = int(data.get("mod", 0))
 
-    # Si la valeur est envoyée par le client, on l'utilise
-    if "value" in data:
-        result = int(data["value"])
-    else:
-        result = random.randint(min_val, max_val) + mod
+            # tire entre min et max puis ajoute le mod
+            result = random.randint(min_val, max_val) + mod
 
-    # Broadcast via Channels
-    channel_layer = get_channel_layer()
-    async_to_sync(channel_layer.group_send)(
-        "dice_room",
-        {
-            "type": "dice_rolled",
-            "value": result,
-        }
-    )
+            # broadcast à tout le monde dans le groupe
+            await self.channel_layer.group_send(
+                "dice_room",
+                {
+                    "type": "dice_rolled",
+                    "value": result,
+                }
+            )
 
-    return Response({"result": result})
+    async def dice_rolled(self, event):
+        # envoi au client avec le bon type pour la UI
+        await self.send(text_data=json.dumps({
+            "type": "dice_result",
+            "value": event["value"],
+        }))

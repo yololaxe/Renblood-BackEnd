@@ -4,7 +4,7 @@ from jobs.viewsets.job_viewset import JobViewSet
 from jobs.viewsets.trait_viewset import TraitViewSet
 from jobs.viewsets.action_viewset import ActionViewSet
 from jobs.viewsets.global_viewset import GlobalViewSet
-from jobs.viewsets.dice_viewset import roll_dice
+from jobs.viewsets.dice_viewset import DiceConsumer
 from jobs.viewsets.node_viewset import NodeViewSet
 
 router = DefaultRouter()
@@ -16,5 +16,5 @@ router.register(r'nodes', NodeViewSet)
 
 urlpatterns = [
     path('', include(router.urls)),
-    path('dice/roll/', roll_dice),
+    path('dice/roll/', DiceConsumer.as_asgi()),
 ]
