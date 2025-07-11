@@ -52,7 +52,7 @@ def get_player(request, player_id):
 
     return JsonResponse(response_data)
 
-    
+
 
 @csrf_exempt
 def delete_player(request, player_id):
@@ -233,7 +233,7 @@ def get_player_jobs(request, player_id):
         return JsonResponse({"error": "Joueur introuvable"}, status=404)
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
-    
+
 
 @csrf_exempt
 def update_player_job(request, player_id, job_name, field):
@@ -301,7 +301,7 @@ def update_player_job(request, player_id, job_name, field):
 
     except Exception as e:
         return JsonResponse({"error": f"Erreur serveur : {str(e)}"}, status=500)
-    
+
 
 def get_players(request, rank):
     if rank.lower() == "admin":
@@ -339,7 +339,7 @@ def manage_player_traits_actions(request, player_id, category, action):
         return JsonResponse({"error": f"{category.capitalize()} not found. ID: {item_id}"}, status=404)
 
     print(f"✅ {category.capitalize()} trouvé : {item}")
-    
+
     item_data = {
         "id": getattr(item, id_field),
         "Name": item.name,
@@ -621,5 +621,51 @@ def deposit_player(request, player_id):
 
     return JsonResponse({
         "message": "Dépôt reçu",
+        "new_balance": player.money
+    }, status=200)
+
+
+@csrf_exempt
+def withdraw_player(request, player_id):
+    if request.method != "POST":
+        return JsonResponse({"error": "Méthode non autorisée"}, status=405)
+
+    # 1) Récupérer le joueur par id_minecraft
+    try:
+        player = Player.objects.get(id_minecraft=player_id)
+    except Player.DoesNotExist:
+        return JsonResponse({"error": "Joueur introuvable"}, status=404)
+
+    # 2) Parse body JSON
+    try:
+        data      = json.loads(request.body)
+        coin_type = int(data.get("coin_type", -1))
+        amount    = int(data.get("amount", 0))
+    except (ValueError, KeyError, json.JSONDecodeError):
+        return JsonResponse({"error": "Payload invalide"}, status=400)
+
+    # 3) Conversion en cuivre selon le type
+    PER_IRON   = 1
+    PER_BRONZE = 64 * PER_IRON
+    PER_SILVER = 64 * PER_BRONZE
+    PER_GOLD   = 64 * PER_SILVER
+    if   coin_type == 0: total_copper = amount * PER_IRON
+    elif coin_type == 1: total_copper = amount * PER_BRONZE
+    elif coin_type == 2: total_copper = amount * PER_SILVER
+    elif coin_type == 3: total_copper = amount * PER_GOLD
+    else:
+        return JsonResponse({"error": "Type de pièce invalide"}, status=400)
+
+    # 4) Vérifier le solde
+    if player.money < total_copper:
+        return JsonResponse({"error": "Solde insuffisant"}, status=400)
+
+    # 5) Déduire et sauvegarder
+    player.money -= total_copper
+    player.save(update_fields=["money"])
+
+    # 6) Réponse
+    return JsonResponse({
+        "message": "Retrait effectué",
         "new_balance": player.money
     }, status=200)

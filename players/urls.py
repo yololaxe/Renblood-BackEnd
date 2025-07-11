@@ -1,7 +1,7 @@
 from django.urls import path
 from .views import create_player, player_full_profile, get_player, delete_player, update_player, get_player_jobs, \
     update_player_job, get_players, manage_player_traits_actions, get_me, update_job_level, get_player_by_minecraft, \
-    deposit_player
+    deposit_player, withdraw_player
 from rest_framework.routers import DefaultRouter
 from players.stats_views import PlayerStatsViewSet
 from .views_discord import DiscordViewSet
@@ -24,7 +24,7 @@ urlpatterns = [
     path('stats/<str:player_id>/full_profile/',player_full_profile,name='player_full_profile'),
     path("getByMinecraft/<str:mc_id>/", get_player_by_minecraft, name="get_player_by_minecraft"),
     path('deposit/<str:player_id>/', deposit_player, name='deposit_player'),
-
+    path('withdraw/<str:player_id>/', withdraw_player, name='withdraw_player'),
                   #path("update/<str:player_id>/jobs/<str:job_name>/<str:field>/<str:new_value>/", update_player_job, name="update_player_job"),
 ] + router.urls
 
