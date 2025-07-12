@@ -16,7 +16,7 @@ router.register(r"globals", GlobalViewSet, basename="global")
 router.register(r"nodes",   NodeViewSet)
 
 urlpatterns = [
-    path("api/jobs/", include(router.urls)),
+    path("", include(router.urls)),
     # endpoint HTTP POST /api/jobs/dice/roll/
     path("api/jobs/dice/roll/", roll_dice, name="dice-roll"),
 ]
