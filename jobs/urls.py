@@ -1,7 +1,7 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 
-from jobs.viewsets.dice_viewset import roll_dice, DiceViewSet
+from jobs.viewsets.dice_viewset import DiceViewSet
 from jobs.viewsets.job_viewset    import JobViewSet
 from jobs.viewsets.trait_viewset  import TraitViewSet
 from jobs.viewsets.action_viewset import ActionViewSet
