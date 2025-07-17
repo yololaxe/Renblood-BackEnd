@@ -11,16 +11,10 @@ class DiceViewSet(viewsets.ViewSet):
     @action(detail=False, methods=['post'], url_path='roll')
     def roll(self, request):
         """
-        POST /api/jobs/dice/roll/
+        POST /stats/dice/roll/
         Lance le dé et broadcast via Channels.
         """
-        user = request.user
-        if getattr(user, "rank", "").lower() != "admin":
-            return Response(
-                {"detail": "Accès refusé. Réservé aux administrateurs."},
-                status=status.HTTP_403_FORBIDDEN
-            )
-
+        # On ne filtre plus sur request.user, on se fie à l'API key/global permissions
         min_val = int(request.data.get("min", 1))
         max_val = int(request.data.get("max", 20))
         mod     = int(request.data.get("mod", 0))
@@ -36,4 +30,4 @@ class DiceViewSet(viewsets.ViewSet):
             }
         )
 
-        return Response({"result": result})
+        return Response({"result": result}, status=status.HTTP_200_OK)
