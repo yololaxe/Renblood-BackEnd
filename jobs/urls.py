@@ -1,7 +1,7 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 
-from jobs.viewsets.dice_viewset import roll_dice
+from jobs.viewsets.dice_viewset import roll_dice, DiceViewSet
 from jobs.viewsets.job_viewset    import JobViewSet
 from jobs.viewsets.trait_viewset  import TraitViewSet
 from jobs.viewsets.action_viewset import ActionViewSet
@@ -14,9 +14,8 @@ router.register(r"trait",   TraitViewSet,  basename="trait")
 router.register(r"action",  ActionViewSet, basename="action")
 router.register(r"globals", GlobalViewSet, basename="global")
 router.register(r"nodes",   NodeViewSet)
-
+router.register(r"dice", DiceViewSet, basename="dice")
 urlpatterns = [
     path("", include(router.urls)),
     # endpoint HTTP POST /api/jobs/dice/roll/
-    path("api/jobs/dice/roll/", roll_dice, name="dice-roll"),
 ]
