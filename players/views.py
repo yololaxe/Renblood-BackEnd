@@ -467,6 +467,11 @@ def update_job_level(request, player_id, job_name):
 
 
 
+from django.http       import JsonResponse
+from django.shortcuts  import get_object_or_404
+from players.models    import Player, CHARACTERISTICS
+from players.stats_views import PlayerStatsViewSet  # ← importer votre ViewSet      # ou d’où viennent vos seuils
+
 def player_full_profile(request, player_id):
     """
     GET /players/stats/<player_id>/full_profile/
@@ -474,46 +479,44 @@ def player_full_profile(request, player_id):
     """
     player = get_object_or_404(Player, id=player_id)
 
-    # 1️⃣ Recalculer tous les levels en une passe
+    # 1️⃣ Recalculer les levels métiers
     experiences = player.experiences or {}
     jobs = experiences.get("jobs", {})
     for job_name, job_data in jobs.items():
         xp = job_data.get("xp", 0)
-        # si xp < 0, on considère le job verrouillé => level à 0
         new_level = next(
             (lvl for thresh, lvl in LEVEL_THRESHOLDS if xp >= thresh),
             0
         )
         job_data["level"] = new_level
-
     player.experiences = experiences
 
-    # 2️⃣ Recalculer real_charact en conservant les Admin existants
+    # 2️⃣ Conserver les bonus Admin existants
     raw = player.real_charact or {}
     existing_admin: dict[str, list] = {}
     for stat, info in raw.items():
-        if isinstance(info, dict):
-            # cas simple : on a un seul dict
-            if info.get("type") == "Admin":
-                existing_admin.setdefault(stat, []).append(info)
+        if isinstance(info, dict) and info.get("type") == "Admin":
+            existing_admin.setdefault(stat, []).append(info)
         elif isinstance(info, list):
-            # cas tableau : on filtre tous les Admin
-            for entry in info:
-                if entry.get("type") == "Admin":
-                    existing_admin.setdefault(stat, []).append(entry)
+            existing_admin.setdefault(stat, []).extend(
+                [b for b in info if b.get("type") == "Admin"]
+            )
 
-    # 3️⃣ Récupérer les bonus TalentTree
+    # 3️⃣ Récupérer les bonus TalentTree et Traits
     ps_vs = PlayerStatsViewSet()
     talent_bonuses = ps_vs._extract_talent_tree_bonus(player)
-    # talent_bonuses est de la forme { stat: [ {count,type}, ... ], ... }
+    trait_bonuses  = ps_vs._extract_traits_bonus(player)
 
-    # 4️⃣ Fusionner Admin + TalentTree (tous en listes)
+    # 4️⃣ Fusionner Admin + TalentTree + Traits
     real_charact: dict[str, list] = {}
-    # d'abord les Admin
+    # d’abord les Admin
     for stat, lst in existing_admin.items():
         real_charact[stat] = lst.copy()
-    # puis on étend avec les TalentTree
+    # puis l’arbre de talents
     for stat, lst in talent_bonuses.items():
+        real_charact.setdefault(stat, []).extend(lst)
+    # enfin les traits
+    for stat, lst in trait_bonuses.items():
         real_charact.setdefault(stat, []).extend(lst)
 
     player.real_charact = real_charact
@@ -521,42 +524,28 @@ def player_full_profile(request, player_id):
     # 5️⃣ Sauvegarde en une seule opération
     player.save(update_fields=["experiences", "real_charact"])
 
-    # 6️⃣ Construit la réponse complète
+    # 6️⃣ Construire la réponse
     response_data = {
-        "id": player.id,
-        "id_minecraft": player.id_minecraft,
+        "id":               player.id,
+        "id_minecraft":     player.id_minecraft,
         "pseudo_minecraft": player.pseudo_minecraft,
-        "name": player.name,
-        "surname": player.surname,
-        "description": player.description,
-        "rank": player.rank,
-        "money": player.money,
-        "divin": player.divin,
-        # caractéristiques de base
-        "life": player.life,
-        "strength": player.strength,
-        "speed": player.speed,
-        "reach": player.reach,
-        "resistance": player.resistance,
-        "place": player.place,
-        "haste": player.haste,
-        "regeneration": player.regeneration,
-        "dodge": player.dodge,
-        "discretion": player.discretion,
-        "charisma": player.charisma,
-        "rethoric": player.rethoric,
-        "mana": player.mana,
-        "negotiation": player.negotiation,
-        "influence": player.influence,
-        "skill": player.skill,
-        # real_charact et expériences métiers mises à jour
+        "name":             player.name,
+        "surname":          player.surname,
+        "description":      player.description,
+        "rank":             player.rank,
+        "money":            player.money,
+        "divin":            player.divin,
+        # stats de base
+        **{ stat: getattr(player, stat) for stat in CHARACTERISTICS },
+        # real_charact + expériences + traits + actions
         "real_charact": real_charact,
-        "experiences": player.experiences,
-        "traits": player.traits,
-        "actions": player.actions,
+        "experiences":  player.experiences,
+        "traits":       player.traits,
+        "actions":      player.actions,
     }
 
     return JsonResponse(response_data, status=200)
+
 
 def get_player_by_minecraft(request, mc_id):
     """

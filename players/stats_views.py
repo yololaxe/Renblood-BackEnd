@@ -4,7 +4,8 @@ from rest_framework import status, viewsets
 from django.shortcuts import get_object_or_404
 
 from players.models import Player, CHARACTERISTICS
-from jobs.models import Job, Trait
+from jobs.models    import Job
+from jobs.models  import Trait   # ← bien depuis l’app traits
 
 
 class PlayerStatsViewSet(viewsets.ViewSet):
@@ -30,7 +31,7 @@ class PlayerStatsViewSet(viewsets.ViewSet):
 
         player = self.get_player(pk)
         real = player.real_charact or {}
-        real[stat] = {"count": count, "type": btype}
+        real.setdefault(stat, []).append({"count": count, "type": btype})
 
         player.real_charact = real
         player.save(update_fields=["real_charact"])
@@ -38,61 +39,56 @@ class PlayerStatsViewSet(viewsets.ViewSet):
 
     @action(detail=True, methods=["post"], url_path="initialize_stats_bonus")
     def initialize_stats_bonus(self, request, pk=None):
+        """
+        Calcule et stocke dans real_charact :
+          1) Les bonus 'Admin' déjà présents
+          2) Les bonus de talent_tree
+          3) Les bonus des traits MongoDB (champ JSONField `bonus`)
+        """
         player = self.get_player(pk)
 
-        # 1) on récupère tous les bonus 'Admin' existants
+        # 1) Conserver les bonus "Admin"
         existing: dict[str, list] = {}
         for stat, info in (player.real_charact or {}).items():
-            if isinstance(info, dict):
-                if info.get("type") == "Admin":
-                    existing.setdefault(stat, []).append(info)
+            if isinstance(info, dict) and info.get("type") == "Admin":
+                existing.setdefault(stat, []).append(info)
             elif isinstance(info, list):
                 admins = [b for b in info if b.get("type") == "Admin"]
                 if admins:
                     existing.setdefault(stat, []).extend(admins)
 
-        # 2) on calcule les bonus talent_tree
-        talent_bonuses = self._extract_talent_tree_bonus(player)
-        for stat, bonus_list in talent_bonuses.items():
-            existing.setdefault(stat, []).extend(bonus_list)
+        # 2) Ajouter les bonus de l'arbre de talents
+        for stat, bl in self._extract_talent_tree_bonus(player).items():
+            existing.setdefault(stat, []).extend(bl)
 
-        # 3) on calcule les bonus traits
-        trait_bonuses = self._extract_traits_bonus(player)
-        for stat, bonus_list in trait_bonuses.items():
-            existing.setdefault(stat, []).extend(bonus_list)
+        # 3) Ajouter les bonus des traits
+        for stat, bl in self._extract_traits_bonus(player).items():
+            existing.setdefault(stat, []).extend(bl)
 
-        # 4) on enregistre tout
+        # 4) Sauvegarder
         player.real_charact = existing
         player.save(update_fields=["real_charact"])
         return Response({"real_charact": existing}, status=200)
 
 
     def _extract_talent_tree_bonus(self, player):
-        """
-        Pour chaque job :
-          - on aplatit skills + inter_choice + mastery
-          - on somme tous les COMP-<stat>_<val> débloqués
-          - on retourne { stat_key: [ { count: total_par_job, type: 'talent_tree_<job>' }, … ] }
-        """
         exp_jobs = player.experiences.get("jobs", {}) or {}
         if not exp_jobs:
             return {}
 
-        # on peut precharger tous les Docs en une requête
         job_qs = Job.objects.filter(_id__in=exp_jobs.keys()).values(
             "_id", "skills", "inter_choice", "mastery"
         )
         job_map = {j["_id"]: j for j in job_qs}
-
         bonuses = {}
 
         for job_name, job_data in exp_jobs.items():
-            prog = job_data.get("progression") or []
+            prog    = job_data.get("progression") or []
             job_doc = job_map.get(job_name)
             if not job_doc:
                 continue
 
-            # aplatir
+            # Aplatir toutes les compétences et commandes
             flat = []
             skills = job_doc.get("skills") or {}
             for fld in ("choice_1", "choice_2", "choice_3"):
@@ -102,60 +98,68 @@ class PlayerStatsViewSet(viewsets.ViewSet):
             for cmd in (job_doc.get("mastery") or []):
                 flat.append({"name": cmd})
 
-            # accumulateur pour CE métier
             accum = {}
-
             for idx, unlocked in enumerate(prog):
                 if not unlocked or idx >= len(flat):
                     continue
-                name = flat[idx].get("name", "") if isinstance(flat[idx], dict) else str(flat[idx])
+                entry = flat[idx]
+                name  = entry.get("name", "") if isinstance(entry, dict) else str(entry)
                 if not name.startswith("COMP-"):
                     continue
                 try:
-                    _, rest = name.split("COMP-", 1)
-                    stat_key, val_str = rest.split("_", 1)
-                    val = int(val_str)
+                    _, rest      = name.split("COMP-", 1)
+                    stat_key, vs = rest.split("_", 1)
+                    val          = int(vs)
                 except ValueError:
                     continue
-
-                # filtre selon votre liste de clés
                 if stat_key not in CHARACTERISTICS:
                     continue
-
                 accum[stat_key] = accum.get(stat_key, 0) + val
 
-            # pour chaque stat de ce job, on crée un objet bonus
             for stat_key, total in accum.items():
                 bonuses.setdefault(stat_key, []).append({
                     "count": total,
-                    "type": f"talent_tree_{job_name}"
+                    "type":  f"talent_tree_{job_name}"
                 })
 
         return bonuses
 
+
     def _extract_traits_bonus(self, player):
         """
-        Extrait pour chaque stat les bonus apportés par les traits du joueur.
-        Retourne un dict { stat_key: [ {count, type}, … ] }.
+        Extrait les bonus définis dans Trait.bonus (JSONField),
+        pour chaque entry de player.traits (qui contient des trait_id ou dicts).
         """
-        trait_ids = player.traits or []
+        raw = player.traits or []
+        # 1) Normaliser en liste d'IDs entiers
+        trait_ids = []
+        for entry in raw:
+            if isinstance(entry, dict):
+                # dict peut contenir key 'trait_id'
+                if "trait_id" in entry:
+                    trait_ids.append(entry["trait_id"])
+                elif "id" in entry:
+                    trait_ids.append(entry["id"])
+            else:
+                trait_ids.append(entry)
+
         if not trait_ids:
             return {}
 
-        # Charger tous les traits d’un coup
-        qs = Trait.objects.filter(id__in=trait_ids).values("id", "bonuses")
-        bonuses: dict[str, list] = {}
+        # 2) Charger d'un coup : {trait_id, bonus}
+        qs = Trait.objects.filter(trait_id__in=trait_ids).values("trait_id", "bonus")
 
-        for trait in qs:
-            for stat_key, bonus_list in (trait["bonuses"] or {}).items():
+        bonuses: dict[str, list] = {}
+        for tr in qs:
+            tid  = tr["trait_id"]
+            data = tr.get("bonus") or {}
+            # bonus: { "mana": 20, "charisma": 1, ... }
+            for stat_key, val in data.items():
                 if stat_key not in CHARACTERISTICS:
                     continue
-                for bonus in bonus_list:
-                    # on colle simplement le bonus tel quel,
-                    # en préfixant le type pour indiquer la source
-                    bonuses.setdefault(stat_key, []).append({
-                        "count": bonus.get("count", 0),
-                        "type": f"trait_{trait['id']}"
-                    })
+                bonuses.setdefault(stat_key, []).append({
+                    "count": val,
+                    "type":  f"trait_{tid}"
+                })
 
         return bonuses
