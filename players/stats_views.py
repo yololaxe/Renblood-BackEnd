@@ -4,7 +4,7 @@ from rest_framework import status, viewsets
 from django.shortcuts import get_object_or_404
 
 from players.models import Player, CHARACTERISTICS
-from jobs.models import Job
+from jobs.models import Job, Trait
 
 
 class PlayerStatsViewSet(viewsets.ViewSet):
@@ -40,7 +40,7 @@ class PlayerStatsViewSet(viewsets.ViewSet):
     def initialize_stats_bonus(self, request, pk=None):
         player = self.get_player(pk)
 
-        # 1) on récupère tous les bonus 'Admin' (qui peuvent être dans un dict ou dans une liste)
+        # 1) on récupère tous les bonus 'Admin' existants
         existing: dict[str, list] = {}
         for stat, info in (player.real_charact or {}).items():
             if isinstance(info, dict):
@@ -51,14 +51,17 @@ class PlayerStatsViewSet(viewsets.ViewSet):
                 if admins:
                     existing.setdefault(stat, []).extend(admins)
 
-        # 2) on calcule les bonus talent_tree (liste par stat)
+        # 2) on calcule les bonus talent_tree
         talent_bonuses = self._extract_talent_tree_bonus(player)
-
-        # 3) on étend la liste existante avec les nouveaux bonus
         for stat, bonus_list in talent_bonuses.items():
             existing.setdefault(stat, []).extend(bonus_list)
 
-        # 4) on enregistre
+        # 3) on calcule les bonus traits
+        trait_bonuses = self._extract_traits_bonus(player)
+        for stat, bonus_list in trait_bonuses.items():
+            existing.setdefault(stat, []).extend(bonus_list)
+
+        # 4) on enregistre tout
         player.real_charact = existing
         player.save(update_fields=["real_charact"])
         return Response({"real_charact": existing}, status=200)
@@ -127,5 +130,32 @@ class PlayerStatsViewSet(viewsets.ViewSet):
                     "count": total,
                     "type": f"talent_tree_{job_name}"
                 })
+
+        return bonuses
+
+    def _extract_traits_bonus(self, player):
+        """
+        Extrait pour chaque stat les bonus apportés par les traits du joueur.
+        Retourne un dict { stat_key: [ {count, type}, … ] }.
+        """
+        trait_ids = player.traits or []
+        if not trait_ids:
+            return {}
+
+        # Charger tous les traits d’un coup
+        qs = Trait.objects.filter(id__in=trait_ids).values("id", "bonuses")
+        bonuses: dict[str, list] = {}
+
+        for trait in qs:
+            for stat_key, bonus_list in (trait["bonuses"] or {}).items():
+                if stat_key not in CHARACTERISTICS:
+                    continue
+                for bonus in bonus_list:
+                    # on colle simplement le bonus tel quel,
+                    # en préfixant le type pour indiquer la source
+                    bonuses.setdefault(stat_key, []).append({
+                        "count": bonus.get("count", 0),
+                        "type": f"trait_{trait['id']}"
+                    })
 
         return bonuses
