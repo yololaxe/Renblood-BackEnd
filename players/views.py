@@ -181,10 +181,6 @@ def _set_nested(data: dict, keys: list, value):
 
 @csrf_exempt
 def update_player(request, player_id):
-    """
-    Met à jour un joueur. Gère à la fois les champs simples et les champs JSON imbriqués
-    (notamment experiences.jobs.<jobKey>.xp).
-    """
     if request.method != "PUT":
         return JsonResponse({"error": "Méthode non autorisée"}, status=405)
 
@@ -198,29 +194,35 @@ def update_player(request, player_id):
     except json.JSONDecodeError:
         return JsonResponse({"error": "JSON invalide"}, status=400)
 
-    # On scanne chaque clé du payload
-    for field_path, value in data.items():
-        # Cas d'un champ imbriqué via dot notation
-        if "." in field_path:
-            keys = field_path.split(".")
-            root = keys[0]
-            # On n'autorise que le JSONField 'experiences'
-            if root == "experiences":
-                current = player.experiences or {}
-                _set_nested(current, keys[1:], value)
-                player.experiences = current
-            else:
-                # racine non gérée -> ignore
-                continue
-        # Champ simple sur l'objet Player
-        elif hasattr(player, field_path):
-            setattr(player, field_path, value)
+    # on va collecter les champs racine qu’on modifie
+    fields_to_update = set()
 
-    player.save()
+    for field_path, value in data.items():
+        if "." in field_path:
+            # nested, on ne gère que "experiences"
+            root, *rest = field_path.split(".")
+            if root != "experiences":
+                continue
+            current = player.experiences or {}
+            _set_nested(current, rest, value)
+            # on replace complètement l’attribut experiences
+            player.experiences = current
+            fields_to_update.add("experiences")
+        else:
+            # simple attribute
+            if hasattr(player, field_path):
+                setattr(player, field_path, value)
+                fields_to_update.add(field_path)
+
+    if fields_to_update:
+        # Ne sauve QUE les champs qu’on vient de toucher
+        player.save(update_fields=list(fields_to_update))
+
     return JsonResponse(
         {"message": "Player modifié avec succès !", "player_id": player.id},
         status=200
     )
+
 
 
 @csrf_exempt
