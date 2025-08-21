@@ -143,6 +143,7 @@ ALLOWED_HOSTS = [
     "http://localhost:5175",
     "http://127.0.0.1:5173",
     "renblood-backend-production.up.railway.app",
+    "renblood-backend-staging.up.railway.app",
     "renblood-website.web.app"
     "renblood-staging.web.app"
 ]
