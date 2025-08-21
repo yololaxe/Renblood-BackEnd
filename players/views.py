@@ -150,6 +150,9 @@ def create_player(request):
             # JSONFields
             experiences     = experiences,
             real_charact    = real_charact,
+
+            patreon=int(data.get("patreon", 0)),  # 👈 NEW
+            # -- JSONFields --
         )
 
         return JsonResponse({
@@ -209,8 +212,14 @@ def update_player(request, player_id):
             player.experiences = current
             fields_to_update.add("experiences")
         else:
-            # simple attribute
             if hasattr(player, field_path):
+                if field_path == "patreon":
+                    try:
+                        value = int(value)
+                    except (TypeError, ValueError):
+                        return JsonResponse({"error": "patreon invalide (entier requis)"}, status=400)
+                    if value < 0 or value > 3:
+                        return JsonResponse({"error": "patreon doit être 0, 1, 2 ou 3"}, status=400)
                 setattr(player, field_path, value)
                 fields_to_update.add(field_path)
 
@@ -309,7 +318,7 @@ def get_players(request, rank):
     if rank.lower() == "admin":
         players_data = Player.objects.values()
     else:
-        players_data = Player.objects.values("pseudo_minecraft", "name", "surname", "rank", "skill", "description", "money", "divin")
+        players_data = Player.objects.values("pseudo_minecraft", "name", "surname", "rank", "skill", "description", "money", "divin","patreon")
 
     return JsonResponse(list(players_data), safe=False)
 
@@ -544,6 +553,7 @@ def player_full_profile(request, player_id):
         "experiences":  player.experiences,
         "traits":       player.traits,
         "actions":      player.actions,
+        "patreon": player.patreon,
     }
 
     return JsonResponse(response_data, status=200)
@@ -586,6 +596,7 @@ def get_player_by_minecraft(request, mc_id):
         "experiences": player.experiences,
         "traits": player.traits,
         "actions": player.actions,
+        "patreon": player.patreon,
     }
 
     return JsonResponse(response_data)

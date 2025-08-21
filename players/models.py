@@ -1,3 +1,4 @@
+from django.core.validators import MinValueValidator, MaxValueValidator
 from djongo import models
 from django.core.exceptions import ValidationError
 
@@ -67,6 +68,10 @@ class Player(models.Model):
     discord_username = models.CharField(max_length=100, blank=True, null=True)
     discord_discriminator = models.CharField(max_length=10, blank=True, null=True)
     discord_avatar = models.CharField(max_length=255, blank=True, null=True)
+    patreon = models.IntegerField(
+        default=0,
+        validators=[MinValueValidator(0), MaxValueValidator(3)],
+    )
 
     # Format des expériences
     experiences = models.JSONField(default=default_jobs_experience)
