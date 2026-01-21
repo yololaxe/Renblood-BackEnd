@@ -566,6 +566,34 @@ def get_player_by_minecraft(request, mc_id):
     """
     player = get_object_or_404(Player, id_minecraft=mc_id)
 
+    # 1️⃣ Conserver les bonus Admin existants
+    raw = player.real_charact or {}
+    existing_admin: dict[str, list] = {}
+    for stat, info in raw.items():
+        if isinstance(info, dict) and info.get("type") == "Admin":
+            existing_admin.setdefault(stat, []).append(info)
+        elif isinstance(info, list):
+            existing_admin.setdefault(stat, []).extend(
+                [b for b in info if b.get("type") == "Admin"]
+            )
+
+    # 2️⃣ Récupérer les bonus TalentTree et Traits
+    ps_vs = PlayerStatsViewSet()
+    talent_bonuses = ps_vs._extract_talent_tree_bonus(player)
+    trait_bonuses  = ps_vs._extract_traits_bonus(player)
+
+    # 3️⃣ Fusionner Admin + TalentTree + Traits
+    real_charact = {}
+    # d’abord les Admin
+    for stat, lst in existing_admin.items():
+        real_charact[stat] = lst.copy()
+    # puis l’arbre de talents
+    for stat, lst in talent_bonuses.items():
+        real_charact.setdefault(stat, []).extend(lst)
+    # enfin les traits
+    for stat, lst in trait_bonuses.items():
+        real_charact.setdefault(stat, []).extend(lst)
+
     response_data = {
         "id": player.id,
         "id_minecraft": player.id_minecraft,
@@ -576,28 +604,21 @@ def get_player_by_minecraft(request, mc_id):
         "rank": player.rank,
         "money": player.money,
         "divin": player.divin,
-        "life": player.life,
-        "strength": player.strength,
-        "speed": player.speed,
-        "reach": player.reach,
-        "resistance": player.resistance,
-        "place": player.place,
-        "haste": player.haste,
-        "regeneration": player.regeneration,
-        "dodge": player.dodge,
-        "discretion": player.discretion,
-        "charisma": player.charisma,
-        "rethoric": player.rethoric,
-        "mana": player.mana,
-        "negotiation": player.negotiation,
-        "influence": player.influence,
-        "skill": player.skill,
-        "real_charact": player.real_charact or {},
+        "real_charact": real_charact,
         "experiences": player.experiences,
         "traits": player.traits,
         "actions": player.actions,
         "patreon": player.patreon,
     }
+
+    # Calcul des stats combinées (base + bonus)
+    for stat in CHARACTERISTICS:
+        base_val = getattr(player, stat, 0)
+        bonuses = real_charact.get(stat, [])
+        bonus_val = 0
+        if isinstance(bonuses, list):
+            bonus_val = sum(b.get("count", 0) for b in bonuses if isinstance(b, dict))
+        response_data[stat] = base_val + bonus_val
 
     return JsonResponse(response_data)
 
