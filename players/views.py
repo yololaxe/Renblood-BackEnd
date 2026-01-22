@@ -4,7 +4,7 @@ from django.core.exceptions import ObjectDoesNotExist
 from .models import Player
 import json
 from django.shortcuts import get_object_or_404
-from .models import Player
+from .models import Player, Licence
 from jobs.models import Trait, Action
 from players.stats_views import PlayerStatsViewSet
 
@@ -765,3 +765,90 @@ def manage_job_xp(request, mc_id):
         "new_xp": new_xp,
         "level": new_level
     }, status=200)
+
+@csrf_exempt
+def manage_player_licences(request, mc_id):
+    """
+    POST /players/licences/<mc_id>/
+    Permet d'ajouter, supprimer ou lister les licences d'un joueur.
+    Body JSON attendu :
+    {
+        "action": "add" | "remove" | "list",
+        "licence_id": 1, # Requis pour remove
+        "name": "Nom de la licence", # Requis pour add
+        "owner_name": "Nom du proprio", # Requis pour add
+        "exploitant_name": "Nom de l'exploitant", # Requis pour add
+        "start_date": "Date de début", # Requis pour add
+        "end_date": "Date de fin", # Requis pour add
+        "details": "Détails", # Optionnel pour add
+        "price": 100.0 # Optionnel pour add
+    }
+    """
+    if request.method != "POST":
+        return JsonResponse({"error": "Méthode non autorisée"}, status=405)
+
+    try:
+        player = Player.objects.get(id_minecraft=mc_id)
+    except Player.DoesNotExist:
+        return JsonResponse({"error": "Joueur introuvable"}, status=404)
+
+    try:
+        data = json.loads(request.body)
+        action = data.get("action")
+    except (ValueError, KeyError, json.JSONDecodeError):
+        return JsonResponse({"error": "Payload invalide"}, status=400)
+
+    if action == "list":
+        licences = player.licences.all()
+        licences_data = []
+        for licence in licences:
+            licences_data.append({
+                "id": licence.id,
+                "name": licence.name,
+                "owner_name": licence.owner_name,
+                "exploitant_name": licence.exploitant_name,
+                "start_date": licence.start_date,
+                "end_date": licence.end_date,
+                "details": licence.details,
+                "price": licence.price
+            })
+        return JsonResponse({"licences": licences_data}, status=200)
+
+    elif action == "add":
+        name = data.get("name")
+        owner_name = data.get("owner_name")
+        exploitant_name = data.get("exploitant_name")
+        start_date = data.get("start_date")
+        end_date = data.get("end_date")
+        details = data.get("details", "")
+        price = float(data.get("price", 0.0))
+
+        if not all([name, owner_name, exploitant_name, start_date, end_date]):
+            return JsonResponse({"error": "Champs manquants pour l'ajout de licence"}, status=400)
+
+        licence = Licence.objects.create(
+            player=player,
+            name=name,
+            owner_name=owner_name,
+            exploitant_name=exploitant_name,
+            start_date=start_date,
+            end_date=end_date,
+            details=details,
+            price=price
+        )
+        return JsonResponse({"message": "Licence ajoutée", "licence_id": licence.id}, status=201)
+
+    elif action == "remove":
+        licence_id = data.get("licence_id")
+        if not licence_id:
+            return JsonResponse({"error": "ID de licence manquant"}, status=400)
+
+        try:
+            licence = Licence.objects.get(id=licence_id, player=player)
+            licence.delete()
+            return JsonResponse({"message": "Licence supprimée"}, status=200)
+        except Licence.DoesNotExist:
+            return JsonResponse({"error": "Licence introuvable"}, status=404)
+
+    else:
+        return JsonResponse({"error": "Action invalide (add, remove, list)"}, status=400)

@@ -89,3 +89,20 @@ class Player(models.Model):
 
     def __str__(self):
         return f"{self.pseudo_minecraft} ({self.rank})"
+
+class Licence(models.Model):
+    id = models.ObjectIdField(primary_key=True)
+    player = models.ForeignKey(Player, on_delete=models.CASCADE, related_name="licences")
+    name = models.CharField(max_length=255)
+    owner_name = models.CharField(max_length=255)
+    exploitant_name = models.CharField(max_length=255)
+    start_date = models.CharField(max_length=255)
+    end_date = models.CharField(max_length=255)
+    details = models.TextField(blank=True, null=True)
+    price = models.FloatField(default=0.0)
+
+    class Meta:
+        db_table = "licences"
+
+    def __str__(self):
+        return f"{self.name} - {self.owner_name}"
