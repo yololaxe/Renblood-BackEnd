@@ -692,3 +692,76 @@ def withdraw_player(request, player_id):
         "message": "Retrait effectué",
         "new_balance": player.money
     }, status=200)
+
+@csrf_exempt
+def manage_job_xp(request, mc_id):
+    """
+    POST /players/manage_job_xp/<mc_id>/
+    Permet d'ajouter, définir ou retirer de l'XP sur un métier d'un joueur.
+    Body JSON attendu :
+    {
+        "action": "add" | "set" | "remove",
+        "job": "NomDuMetier",
+        "amount": 100
+    }
+    """
+    if request.method != "POST":
+        return JsonResponse({"error": "Méthode non autorisée"}, status=405)
+
+    try:
+        player = Player.objects.get(id_minecraft=mc_id)
+    except Player.DoesNotExist:
+        return JsonResponse({"error": "Joueur introuvable"}, status=404)
+
+    try:
+        data = json.loads(request.body)
+        action = data.get("action")
+        job_name = data.get("job")
+        amount = int(data.get("amount", 0))
+    except (ValueError, KeyError, json.JSONDecodeError):
+        return JsonResponse({"error": "Payload invalide"}, status=400)
+
+    if not job_name:
+        return JsonResponse({"error": "Nom du métier manquant"}, status=400)
+    
+    if action not in ["add", "set", "remove"]:
+        return JsonResponse({"error": "Action invalide (add, set, remove)"}, status=400)
+
+    experiences = player.experiences or {}
+    jobs = experiences.get("jobs", {})
+    
+    # Si le job n'existe pas encore, on l'initialise
+    if job_name not in jobs:
+        jobs[job_name] = {"xp": 0, "level": 0, "progression": [], "choose_lvl_10": "", "inter_choice": [], "mastery": []}
+
+    current_xp = jobs[job_name].get("xp", 0)
+
+    if action == "add":
+        new_xp = current_xp + amount
+    elif action == "remove":
+        new_xp = max(0, current_xp - amount)
+    elif action == "set":
+        new_xp = max(0, amount)
+    
+    jobs[job_name]["xp"] = new_xp
+
+    # Recalcul du niveau
+    new_level = 0
+    for xp_threshold, lvl in LEVEL_THRESHOLDS:
+        if new_xp >= xp_threshold:
+            new_level = lvl
+            break
+    
+    jobs[job_name]["level"] = new_level
+    
+    # Sauvegarde
+    player.experiences = experiences
+    player.save(update_fields=["experiences"])
+
+    return JsonResponse({
+        "message": f"XP mis à jour pour {job_name}",
+        "job": job_name,
+        "old_xp": current_xp,
+        "new_xp": new_xp,
+        "level": new_level
+    }, status=200)
