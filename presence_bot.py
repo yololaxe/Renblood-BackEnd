@@ -1,10 +1,18 @@
 # presence_bot.py
 
 import os
+import django
 from dotenv import load_dotenv
-from django.core.cache import cache
+from django.conf import settings
 
 load_dotenv()
+
+# Ensure Django is setup
+if not settings.configured:
+    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "RenbloodBackEnd.settings")
+    django.setup()
+
+from django.core.cache import cache
 
 def run_presence_bot():
     # Import "paresseux" pour éviter l'import d'aiohttp/discord pendant l'init Django
@@ -43,7 +51,8 @@ def run_presence_bot():
         if not guild:
             return
         online = [m.name for m in guild.members if m.status is not discord.Status.offline]
-        cache.set("discord_online_members", online, timeout=None)
+        # Wrap synchronous cache call
+        await sync_to_async(cache.set)("discord_online_members", online, timeout=None)
         print(f"[BOT] Cache online-members mis à jour : {online}")
 
     # ─── Events ───────────────────────────────────────────
