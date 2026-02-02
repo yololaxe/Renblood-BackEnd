@@ -94,9 +94,12 @@ def run_presence_bot():
         # Import tardif pour éviter cycles au boot
         from players.models import Player
 
-        try:
-            player = await sync_to_async(Player.objects.get)(discord_id=discord_id)
-        except Player.DoesNotExist:
+        def get_player_sync(d_id):
+            return Player.objects.filter(discord_id=d_id).first()
+
+        player = await sync_to_async(get_player_sync)(discord_id)
+
+        if not player:
             return await interaction.response.send_message(
                 "❌ Votre compte Discord n'est pas lié à Renblood. Utilisez `/link` sur le site web.",
                 ephemeral=False
