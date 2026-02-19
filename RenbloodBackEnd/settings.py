@@ -39,7 +39,8 @@ INSTALLED_APPS = [
     'jobs',
     'game_sessions',
     'rest_framework',
-    'channels'
+    'channels',
+    'quests',
 ]
 
 
