@@ -3,6 +3,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from .models import Quest, PlayerQuestState
+from players.models import Player
 import json
 
 @csrf_exempt
@@ -10,14 +11,22 @@ def list_quests(request):
     """
     GET /quests/list/
     Renvoie la liste de toutes les quêtes.
+    Optionnel: ?category=Main pour filtrer par catégorie.
     """
     if request.method != "GET":
         return JsonResponse({"error": "Méthode non autorisée"}, status=405)
 
-    quests = Quest.objects.all()
+    category_filter = request.GET.get("category")
+    
+    if category_filter:
+        quests = Quest.objects.filter(category=category_filter)
+    else:
+        quests = Quest.objects.all()
+
     data = []
     for quest in quests:
         data.append({
+            "id": quest.questId, # Ajout de l'id pour compatibilité
             "questId": quest.questId,
             "parentId": quest.parentId,
             "name": quest.name,
@@ -90,6 +99,7 @@ def quest_detail(request, quest_id):
 
     if request.method == "GET":
         data = {
+            "id": quest.questId, # Ajout de l'id pour compatibilité
             "questId": quest.questId,
             "parentId": quest.parentId,
             "name": quest.name,
@@ -256,6 +266,7 @@ def get_player_active_quests(request, player_id):
                 continue
                 
             active_quests.append({
+                "id": quest.questId, # Ajout de l'id pour compatibilité
                 "questId": quest.questId,
                 "name": quest.name,
                 "category": quest.category,
@@ -269,6 +280,23 @@ def get_player_active_quests(request, player_id):
             continue # On ignore si la quête n'existe plus
 
     return JsonResponse(active_quests, safe=False)
+
+@csrf_exempt
+def get_player_active_quests_by_mc_id(request, mc_id):
+    """
+    GET /quests/minecraft/<mc_id>/active/
+    Renvoie les quêtes actives (IN_PROGRESS) du joueur via son UUID Minecraft.
+    Optionnel: ?category=Main pour filtrer par catégorie.
+    """
+    if request.method != "GET":
+        return JsonResponse({"error": "Méthode non autorisée"}, status=405)
+
+    try:
+        player = Player.objects.get(id_minecraft=mc_id)
+    except Player.DoesNotExist:
+        return JsonResponse({"error": "Joueur introuvable"}, status=404)
+
+    return get_player_active_quests(request, player.id)
 
 @csrf_exempt
 def join_multiplayer_quest(request, quest_id):

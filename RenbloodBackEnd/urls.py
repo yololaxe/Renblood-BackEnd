@@ -14,4 +14,5 @@ urlpatterns = [
     path('stats/', include('jobs.urls')),
     path('sessions/', include('game_sessions.urls')),
     path('quests/', include('quests.urls')),
+    path('npcs/', include('npcs.urls')),
 ]
