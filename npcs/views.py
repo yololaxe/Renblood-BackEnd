@@ -24,6 +24,10 @@ def list_npcs(request):
             "dialogue": npc.dialogue,
             "tags": npc.tags,
             "enabled": npc.enabled,
+            "description": npc.description,
+            "profile_image": npc.profile_image,
+            "met_by": npc.met_by,
+            "region": npc.region,
             # Champs spécifiques
             "shop_id": npc.shop_id,
             "quest_ids": npc.quest_ids,
@@ -55,6 +59,10 @@ def create_npc(request):
             dialogue=data.get("dialogue", []),
             tags=data.get("tags", []),
             enabled=data.get("enabled", True),
+            description=data.get("description", ""),
+            profile_image=data.get("profile_image", "NPCdefault.png"),
+            met_by=data.get("met_by", []),
+            region=data.get("region", "Royaume de Renblood"),
             
             # DECO
             idle_behavior=data.get("idle_behavior"),
@@ -100,6 +108,10 @@ def npc_detail(request, npc_id):
             "dialogue": npc.dialogue,
             "tags": npc.tags,
             "enabled": npc.enabled,
+            "description": npc.description,
+            "profile_image": npc.profile_image,
+            "met_by": npc.met_by,
+            "region": npc.region,
             "idle_behavior": npc.idle_behavior,
             "ambient_lines": npc.ambient_lines,
             "shop_id": npc.shop_id,
@@ -130,6 +142,39 @@ def npc_detail(request, npc_id):
 
     else:
         return JsonResponse({"error": "Méthode non autorisée"}, status=405)
+
+@csrf_exempt
+def meet_npc(request, npc_id):
+    """
+    POST /npcs/<npc_id>/meet/
+    Body: { "player_id": "..." }
+    Ajoute le joueur à la liste des personnes ayant rencontré le NPC.
+    """
+    if request.method != "POST":
+        return JsonResponse({"error": "Méthode non autorisée"}, status=405)
+
+    try:
+        data = json.loads(request.body)
+        player_id = data.get("player_id")
+        
+        if not player_id:
+            return JsonResponse({"error": "player_id requis"}, status=400)
+
+        npc = get_object_or_404(Npc, npc_id=npc_id)
+        
+        met_by = npc.met_by or []
+        if player_id not in met_by:
+            met_by.append(player_id)
+            npc.met_by = met_by
+            npc.save()
+            return JsonResponse({"message": "Rencontre enregistrée", "npc_id": npc.npc_id}, status=200)
+        else:
+            return JsonResponse({"message": "Déjà rencontré", "npc_id": npc.npc_id}, status=200)
+
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "JSON invalide"}, status=400)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
 
 # --- SPAWNS ---
 

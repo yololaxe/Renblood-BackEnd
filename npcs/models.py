@@ -17,6 +17,12 @@ class Npc(models.Model):
     tags = models.JSONField(default=list, blank=True) # List of strings
     enabled = models.BooleanField(default=True)
     
+    # Nouveaux champs pour le site web
+    description = models.TextField(blank=True, null=True)
+    profile_image = models.CharField(max_length=255, default="NPCdefault.png")
+    met_by = models.JSONField(default=list, blank=True) # List of player_ids/mc_ids
+    region = models.CharField(max_length=255, default="Royaume de Renblood")
+    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
