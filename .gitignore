@@ -1,6 +1,12 @@
-
-# 📜 Ignorer les fichiers d'environnement
+# Environment files
 .env
 *.env
 .venv
 *.venv
+
+# Local secrets
+firebase-adminsdk.json
+
+# Python cache / build artifacts
+__pycache__/
+*.pyc
