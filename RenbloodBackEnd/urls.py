@@ -29,5 +29,5 @@ urlpatterns = [
     path("npcs/", include("npcs.urls")),
 ]
 
-if find_spec("markets.urls") is not None:
+if find_spec("markets") is not None and find_spec("markets.urls") is not None:
     urlpatterns.append(path("", include("markets.urls")))
