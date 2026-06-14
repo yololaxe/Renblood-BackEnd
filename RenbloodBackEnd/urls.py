@@ -1,3 +1,5 @@
+from importlib.util import find_spec
+
 from django.conf import settings
 from django.contrib import admin
 from django.http import JsonResponse
@@ -25,5 +27,7 @@ urlpatterns = [
     path("sessions/", include("game_sessions.urls")),
     path("quests/", include("quests.urls")),
     path("npcs/", include("npcs.urls")),
-    path("", include("markets.urls")),
 ]
+
+if find_spec("markets.urls") is not None:
+    urlpatterns.append(path("", include("markets.urls")))

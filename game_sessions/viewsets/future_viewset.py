@@ -16,7 +16,7 @@ class FutureViewSet(viewsets.ModelViewSet):
     CRUD sur les futures + endpoint POST /sessions/futures/add-future/
     pour créer en renvoyant 205.
     """
-    queryset = Future.objects.all()
+    queryset = Future.objects.select_related("session", "player")
     serializer_class = FutureSerializer
 
     def get_queryset(self):
@@ -101,7 +101,7 @@ class FutureViewSet(viewsets.ModelViewSet):
             )
         session = get_object_or_404(Session, pk=session_id)
         players = session.players.all()
-        futures = Future.objects.filter(session=session)
+        futures = Future.objects.filter(session=session).select_related("player")
         future_map = {f.player_id: f for f in futures}
 
         out = []

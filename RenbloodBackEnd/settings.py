@@ -1,4 +1,5 @@
 from pathlib import Path
+from importlib.util import find_spec
 import logging
 import os
 
@@ -33,6 +34,15 @@ def _require_env(name):
     raise RuntimeError(f"Missing required environment variable: {name}")
 
 
+def _get_mongo_uri():
+    value = os.getenv("MONGO_URI") or os.getenv("MONGO_DB_URI")
+    if value:
+        return value
+    if DJANGO_ENV == "local":
+        return "mongodb://127.0.0.1:27017/"
+    raise RuntimeError("Missing required environment variable: MONGO_URI")
+
+
 DJANGO_ENV = os.getenv("DJANGO_ENV", "local").strip().lower()
 if DJANGO_ENV not in {"local", "staging", "production"}:
     raise RuntimeError(
@@ -40,6 +50,10 @@ if DJANGO_ENV not in {"local", "staging", "production"}:
     )
 
 DEBUG = _parse_bool(os.getenv("DEBUG"), default=(DJANGO_ENV == "local"))
+ENABLE_PRESENCE_BOT = _parse_bool(
+    os.getenv("ENABLE_PRESENCE_BOT"),
+    default=(DJANGO_ENV in {"staging", "production"}),
+)
 
 SECRET_KEY = os.getenv("SECRET_KEY")
 if not SECRET_KEY:
@@ -48,7 +62,8 @@ if not SECRET_KEY:
     else:
         raise RuntimeError("Missing required environment variable: SECRET_KEY")
 
-MONGO_URI = _require_env("MONGO_URI")
+MONGO_URI = _get_mongo_uri()
+MONGO_USE_TLS = _parse_bool(os.getenv("MONGO_USE_TLS"), default=(DJANGO_ENV != "local"))
 MONGO_DB_NAME = os.getenv(
     "MONGO_DB_NAME",
     {
@@ -102,9 +117,10 @@ FRONTEND_URL = os.getenv("FRONTEND_URL")
 
 print(f"Renblood backend startup: environment={DJANGO_ENV} database={MONGO_DB_NAME}")
 logger.info(
-    "Renblood backend startup environment=%s database=%s",
+    "Renblood backend startup environment=%s database=%s bot_enabled=%s",
     DJANGO_ENV,
     MONGO_DB_NAME,
+    ENABLE_PRESENCE_BOT,
 )
 
 
@@ -123,8 +139,10 @@ INSTALLED_APPS = [
     "channels",
     "quests",
     "npcs",
-    "markets",
 ]
+
+if find_spec("markets") is not None:
+    INSTALLED_APPS.append("markets")
 
 
 MIDDLEWARE = [
@@ -189,11 +207,17 @@ DATABASES = {
         "ENGINE": "djongo",
         "NAME": MONGO_DB_NAME,
         "ENFORCE_SCHEMA": False,
-        "CLIENT": {
-            "host": MONGO_URI,
-            "tls": True,
-            "tlsAllowInvalidCertificates": True,
-        },
+        "CLIENT": (
+            {
+                "host": MONGO_URI,
+                "tls": True,
+                "tlsAllowInvalidCertificates": True,
+            }
+            if MONGO_USE_TLS
+            else {
+                "host": MONGO_URI,
+            }
+        ),
     }
 }
 

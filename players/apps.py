@@ -2,6 +2,7 @@
 import os
 import threading
 from django.apps import AppConfig
+from django.conf import settings
 
 # Garde globale pour éviter tout double-lancement
 _bot_started = False
@@ -21,7 +22,7 @@ class PlayersConfig(AppConfig):
         """
 
         # 1) Ne rien faire si désactivé explicitement
-        if os.environ.get("DISABLE_BOT") == "1":
+        if os.environ.get("DISABLE_BOT") == "1" or not getattr(settings, "ENABLE_PRESENCE_BOT", False):
             return
 
         # 2) Éviter les double-lancements du reloader Django (process enfant)
