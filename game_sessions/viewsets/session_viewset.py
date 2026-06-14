@@ -10,7 +10,7 @@ from players.models import Player
 from game_sessions.models.future import Future
 
 class SessionViewSet(viewsets.ModelViewSet):
-    queryset = Session.objects.all()
+    queryset = Session.objects.prefetch_related("players", "futures__player")
     serializer_class = SessionSerializer
 
     @action(detail=False, methods=['get'], url_path='current')
@@ -23,7 +23,7 @@ class SessionViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_404_NOT_FOUND
             )
         try:
-            s = Session.objects.get(year=g.year, season=g.season)
+            s = Session.objects.prefetch_related("players", "futures__player").get(year=g.year, season=g.season)
             return Response(SessionSerializer(s).data, status=status.HTTP_200_OK)
         except Session.DoesNotExist:
             return Response(

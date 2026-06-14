@@ -4,8 +4,8 @@ from rest_framework import serializers
 from game_sessions.models.session import Session
 
 class SessionSerializer(serializers.ModelSerializer):
-    players_count   = serializers.IntegerField(source='players.count', read_only=True)
-    futures_count   = serializers.IntegerField(source='futures.count', read_only=True)
+    players_count   = serializers.SerializerMethodField()
+    futures_count   = serializers.SerializerMethodField()
     players         = serializers.SerializerMethodField()
     futures_players = serializers.SerializerMethodField()
 
@@ -24,13 +24,21 @@ class SessionSerializer(serializers.ModelSerializer):
         ]
 
     def get_players(self, session):
-        return [
-            {'id': p.id, 'name': p.pseudo_minecraft or p.name}
-            for p in session.players.all()
-        ]
+        players = list(session.players.all())
+        return [{"id": player.id, "name": player.pseudo_minecraft or player.name} for player in players]
+
+    def get_players_count(self, session):
+        players_cache = getattr(session, "_prefetched_objects_cache", {}).get("players")
+        if players_cache is not None:
+            return len(players_cache)
+        return session.players.count()
+
+    def get_futures_count(self, session):
+        futures_cache = getattr(session, "_prefetched_objects_cache", {}).get("futures")
+        if futures_cache is not None:
+            return len(futures_cache)
+        return session.futures.count()
 
     def get_futures_players(self, session):
-        return [
-            f.player.pseudo_minecraft or f.player.name
-            for f in session.futures.all()
-        ]
+        futures = list(session.futures.all())
+        return [future.player.pseudo_minecraft or future.player.name for future in futures]
