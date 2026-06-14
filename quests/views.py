@@ -4,6 +4,7 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from .models import Quest, PlayerQuestState
 from players.models import Player
+from utils.decorators import admin_required
 import json
 
 @csrf_exempt
@@ -33,6 +34,8 @@ def list_quests(request):
             "category": quest.category,
             "type": quest.type,
             "npc": quest.npc,
+            "npcId": quest.npcId,
+            "npcName": quest.npcName,
             "description": quest.description,
             "prerequisitesAll": quest.prerequisitesAll,
             "prerequisitesAny": quest.prerequisitesAny,
@@ -46,6 +49,7 @@ def list_quests(request):
     return JsonResponse(data, safe=False)
 
 @csrf_exempt
+@admin_required
 def create_quest(request):
     """
     POST /quests/create/
@@ -70,6 +74,8 @@ def create_quest(request):
             category=data["category"],
             type=data.get("type", "Solo"),
             npc=data.get("npc"),
+            npcId=data.get("npcId") or data.get("npc_id"),
+            npcName=data.get("npcName") or data.get("npc_name") or data.get("npc"),
             description=data.get("description", {}),
             prerequisitesAll=data.get("prerequisitesAll", []),
             prerequisitesAny=data.get("prerequisitesAny", []),
@@ -95,6 +101,15 @@ def quest_detail(request, quest_id):
     PUT /quests/<quest_id>/ : Modifier une quête
     DELETE /quests/<quest_id>/ : Supprimer une quête
     """
+    if request.method == "PUT" or request.method == "DELETE":
+        @admin_required
+        def protected_view(request, *args, **kwargs):
+            return _quest_detail_handler(request, *args, **kwargs)
+        return protected_view(request, quest_id=quest_id)
+    else:
+        return _quest_detail_handler(request, quest_id=quest_id)
+
+def _quest_detail_handler(request, quest_id):
     quest = get_object_or_404(Quest, questId=quest_id)
 
     if request.method == "GET":
@@ -106,6 +121,8 @@ def quest_detail(request, quest_id):
             "category": quest.category,
             "type": quest.type,
             "npc": quest.npc,
+            "npcId": quest.npcId,
+            "npcName": quest.npcName,
             "description": quest.description,
             "prerequisitesAll": quest.prerequisitesAll,
             "prerequisitesAny": quest.prerequisitesAny,
@@ -164,6 +181,7 @@ def get_player_quests(request, player_id):
     return JsonResponse(data, safe=False)
 
 @csrf_exempt
+@admin_required
 def update_player_quest_status(request, player_id):
     """
     POST /quests/player/<player_id>/update/
@@ -220,6 +238,7 @@ def update_player_quest_status(request, player_id):
         return JsonResponse({"error": str(e)}, status=500)
 
 @csrf_exempt
+@admin_required
 def list_all_player_quest_states(request):
     """
     GET /quests/all_player_states/
@@ -272,6 +291,8 @@ def get_player_active_quests(request, player_id):
                 "category": quest.category,
                 "type": quest.type,
                 "npc": quest.npc,
+                "npcId": quest.npcId,
+                "npcName": quest.npcName,
                 "objectives": quest.objectives,
                 "startedAt": state.startedAt,
                 "members": state.members
@@ -299,6 +320,7 @@ def get_player_active_quests_by_mc_id(request, mc_id):
     return get_player_active_quests(request, player.id)
 
 @csrf_exempt
+@admin_required
 def join_multiplayer_quest(request, quest_id):
     """
     POST /quests/<quest_id>/join/
@@ -357,6 +379,7 @@ def join_multiplayer_quest(request, quest_id):
         return JsonResponse({"error": str(e)}, status=500)
 
 @csrf_exempt
+@admin_required
 def update_quest_start_npc(request, quest_id):
     """
     PUT /quests/<quest_id>/npc/start/
@@ -383,6 +406,7 @@ def update_quest_start_npc(request, quest_id):
         return JsonResponse({"error": "JSON invalide"}, status=400)
 
 @csrf_exempt
+@admin_required
 def update_quest_objective_npc(request, quest_id):
     """
     PUT /quests/<quest_id>/npc/objective/
@@ -417,3 +441,33 @@ def update_quest_objective_npc(request, quest_id):
         
     except json.JSONDecodeError:
         return JsonResponse({"error": "JSON invalide"}, status=400)
+
+@csrf_exempt
+@admin_required
+def cancel_player_quest(request, player_id):
+    """
+    POST /quests/player/<player_id>/cancel/
+    Supprime l'état d'une quête pour un joueur, la réinitialisant.
+    Body: { "quest_id": "m1.1" }
+    """
+    if request.method != "POST":
+        return JsonResponse({"error": "Méthode non autorisée"}, status=405)
+
+    try:
+        data = json.loads(request.body)
+        quest_id = data.get("quest_id")
+
+        if not quest_id:
+            return JsonResponse({"error": "quest_id requis"}, status=400)
+
+        try:
+            pq_state = PlayerQuestState.objects.get(player_id=player_id, quest_id=quest_id)
+            pq_state.delete()
+            return JsonResponse({"message": "Quête annulée/réinitialisée avec succès"}, status=200)
+        except PlayerQuestState.DoesNotExist:
+            return JsonResponse({"error": "Le joueur n'a pas cette quête"}, status=404)
+
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "JSON invalide"}, status=400)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)

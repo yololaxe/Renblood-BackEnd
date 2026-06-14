@@ -7,6 +7,7 @@ from django.shortcuts import get_object_or_404
 from .models import Player, Licence
 from jobs.models import Trait, Action
 from players.stats_views import PlayerStatsViewSet
+from utils.decorators import admin_required
 
 
 
@@ -55,6 +56,7 @@ def get_player(request, player_id):
 
 
 @csrf_exempt
+@admin_required
 def delete_player(request, player_id):
     """Supprimer un joueur avec son ID Firebase"""
     if request.method == "DELETE":
@@ -74,6 +76,7 @@ from django.http import JsonResponse
 from .models import Player, CHARACTERISTICS, default_real_charact
 
 @csrf_exempt
+@admin_required
 def create_player(request):
     if request.method != "POST":
         return JsonResponse({"error": "Méthode non autorisée"}, status=405)
@@ -183,6 +186,7 @@ def _set_nested(data: dict, keys: list, value):
 
 
 @csrf_exempt
+@admin_required
 def update_player(request, player_id):
     if request.method != "PUT":
         return JsonResponse({"error": "Méthode non autorisée"}, status=405)
@@ -247,6 +251,7 @@ def get_player_jobs(request, player_id):
 
 
 @csrf_exempt
+@admin_required
 def update_player_job(request, player_id, job_name, field):
     """
     Met à jour un champ spécifique d'un job pour un joueur donné.
@@ -324,6 +329,7 @@ def get_players(request, rank):
 
 
 @csrf_exempt
+@admin_required
 def manage_player_traits_actions(request, player_id, category, action):
     player = get_object_or_404(Player, id=player_id)
 
@@ -436,6 +442,7 @@ LEVEL_THRESHOLDS = [
 ]
 
 @csrf_exempt
+@admin_required
 def update_job_level(request, player_id, job_name):
     """
     Met à jour le level d'un métier d'un joueur en fonction de son xp.
@@ -483,6 +490,7 @@ from django.shortcuts  import get_object_or_404
 from players.models    import Player, CHARACTERISTICS
 from players.stats_views import PlayerStatsViewSet  # ← importer votre ViewSet      # ou d’où viennent vos seuils
 
+@admin_required
 def player_full_profile(request, player_id):
     """
     GET /players/stats/<player_id>/full_profile/
@@ -623,6 +631,7 @@ def get_player_by_minecraft(request, mc_id):
     return JsonResponse(response_data)
 
 @csrf_exempt
+@admin_required
 def deposit_player(request, player_id):
     if request.method != "POST":
         return JsonResponse({"error": "Méthode non autorisée"}, status=405)
@@ -649,6 +658,7 @@ def deposit_player(request, player_id):
 
 
 @csrf_exempt
+@admin_required
 def withdraw_player(request, player_id):
     if request.method != "POST":
         return JsonResponse({"error": "Méthode non autorisée"}, status=405)
@@ -694,6 +704,7 @@ def withdraw_player(request, player_id):
     }, status=200)
 
 @csrf_exempt
+@admin_required
 def manage_job_xp(request, mc_id):
     """
     POST /players/manage_job_xp/<mc_id>/
@@ -767,6 +778,7 @@ def manage_job_xp(request, mc_id):
     }, status=200)
 
 @csrf_exempt
+@admin_required
 def manage_player_licences(request, mc_id):
     """
     POST /players/licences/<mc_id>/

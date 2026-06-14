@@ -25,6 +25,8 @@ class Quest(models.Model):
     prerequisitesAny = models.JSONField(default=list, blank=True) # List of quest_ids
     
     npc = models.CharField(max_length=255, blank=True, null=True)
+    npcId = models.CharField(max_length=255, blank=True, null=True)
+    npcName = models.CharField(max_length=255, blank=True, null=True)
     type = models.CharField(max_length=50, choices=TYPE_CHOICES, default='Solo')
     
     description = models.JSONField(default=dict) # { "fr": "...", "en": "..." }

@@ -1,6 +1,19 @@
-
-# 📜 Ignorer les fichiers d'environnement
+# Environment files and secrets
 .env
-*.env
-.venv
-*.venv
+.env.*
+!.env.example
+!.env.staging.example
+!.env.production.example
+
+# Python environments and generated files
+.venv/
+*.venv/
+__pycache__/
+*.pyc
+
+# Local recovery tools
+.recovery-tools/
+
+# Firebase credentials
+adminsdk.json
+firebase-adminsdk.json

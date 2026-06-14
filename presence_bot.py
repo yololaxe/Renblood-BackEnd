@@ -1,11 +1,15 @@
 # presence_bot.py
 
 import os
+from pathlib import Path
+
 import django
-from dotenv import load_dotenv
 from django.conf import settings
 
-load_dotenv()
+from RenbloodBackEnd.environment import load_environment
+
+
+load_environment(Path(__file__).resolve().parent)
 
 # Ensure Django is setup
 if not settings.configured:

@@ -2,6 +2,7 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from utils.permissions import IsRenbloodAdmin
 
 from game_sessions.models.session import Session
 from game_sessions.models.session_money import SessionMoney
@@ -12,6 +13,16 @@ from game_sessions.models.future import Future
 class SessionViewSet(viewsets.ModelViewSet):
     queryset = Session.objects.all()
     serializer_class = SessionSerializer
+
+    def get_permissions(self):
+        """
+        Instantiates and returns the list of permissions that this view requires.
+        """
+        if self.action in ['create', 'update', 'partial_update', 'destroy', 'add_player', 'remove_player', 'set_session_date']:
+            self.permission_classes = [IsRenbloodAdmin]
+        else:
+            self.permission_classes = []
+        return super(SessionViewSet, self).get_permissions()
 
     @action(detail=False, methods=['get'], url_path='current')
     def get_current(self, request):

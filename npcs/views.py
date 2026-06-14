@@ -3,6 +3,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.shortcuts import get_object_or_404
 from django.db import IntegrityError
 from .models import Npc, NpcSpawn
+from utils.decorators import admin_required
 import json
 
 @csrf_exempt
@@ -36,6 +37,7 @@ def list_npcs(request):
     return JsonResponse(data, safe=False)
 
 @csrf_exempt
+@admin_required
 def create_npc(request):
     """
     POST /npcs/create/
@@ -97,6 +99,15 @@ def npc_detail(request, npc_id):
     PUT /npcs/<npc_id>/
     DELETE /npcs/<npc_id>/
     """
+    if request.method == "PUT" or request.method == "DELETE":
+        @admin_required
+        def protected_view(request, *args, **kwargs):
+            return _npc_detail_handler(request, *args, **kwargs)
+        return protected_view(request, npc_id=npc_id)
+    else:
+        return _npc_detail_handler(request, npc_id=npc_id)
+
+def _npc_detail_handler(request, npc_id):
     npc = get_object_or_404(Npc, npc_id=npc_id)
 
     if request.method == "GET":
@@ -144,6 +155,7 @@ def npc_detail(request, npc_id):
         return JsonResponse({"error": "Méthode non autorisée"}, status=405)
 
 @csrf_exempt
+@admin_required
 def meet_npc(request, npc_id):
     """
     POST /npcs/<npc_id>/meet/
@@ -205,6 +217,7 @@ def list_spawns(request):
     return JsonResponse(data, safe=False)
 
 @csrf_exempt
+@admin_required
 def create_spawn(request):
     """
     POST /npcs/spawns/create/
