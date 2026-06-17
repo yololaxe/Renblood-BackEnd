@@ -3,8 +3,17 @@ from django.views.decorators.csrf import csrf_exempt
 from django.shortcuts import get_object_or_404
 from django.db import IntegrityError
 from .models import Npc, NpcSpawn
-from utils.decorators import admin_required
+from quests.contracts import normalize_implementation, quest_links_for_npc
+from utils.decorators import admin_required, minecraft_api_key_or_firebase_admin_required
 import json
+
+NPC_JSON_FIELD_DEFAULTS = {
+    "dialogue": list,
+    "tags": list,
+    "met_by": list,
+    "ambient_lines": list,
+    "dialogue_by_state": dict,
+}
 
 @csrf_exempt
 def list_npcs(request):
@@ -31,7 +40,8 @@ def list_npcs(request):
             "region": npc.region,
             # Champs spécifiques
             "shop_id": npc.shop_id,
-            "quest_ids": npc.quest_ids,
+            "quest_links": quest_links_for_npc(npc.npc_id),
+            "implementation": normalize_implementation(npc.implementation),
             "dialogue_by_state": npc.dialogue_by_state
         })
     return JsonResponse(data, safe=False)
@@ -77,9 +87,6 @@ def create_npc(request):
             trade_category=data.get("trade_category"),
             
             # QUEST
-            quest_giver=data.get("quest_giver", False),
-            quest_validator=data.get("quest_validator", False),
-            quest_ids=data.get("quest_ids", []),
             dialogue_by_state=data.get("dialogue_by_state", {})
         )
         
@@ -129,9 +136,8 @@ def _npc_detail_handler(request, npc_id):
             "currency": npc.currency,
             "open_message": npc.open_message,
             "trade_category": npc.trade_category,
-            "quest_giver": npc.quest_giver,
-            "quest_validator": npc.quest_validator,
-            "quest_ids": npc.quest_ids,
+            "quest_links": quest_links_for_npc(npc.npc_id),
+            "implementation": normalize_implementation(npc.implementation),
             "dialogue_by_state": npc.dialogue_by_state
         }
         return JsonResponse(data)
@@ -141,6 +147,8 @@ def _npc_detail_handler(request, npc_id):
             data = json.loads(request.body)
             for field, value in data.items():
                 if hasattr(npc, field):
+                    if field in NPC_JSON_FIELD_DEFAULTS and value is None:
+                        value = NPC_JSON_FIELD_DEFAULTS[field]()
                     setattr(npc, field, value)
             npc.save()
             return JsonResponse({"message": "NPC mis à jour", "npc_id": npc.npc_id})
@@ -155,7 +163,7 @@ def _npc_detail_handler(request, npc_id):
         return JsonResponse({"error": "Méthode non autorisée"}, status=405)
 
 @csrf_exempt
-@admin_required
+@minecraft_api_key_or_firebase_admin_required
 def meet_npc(request, npc_id):
     """
     POST /npcs/<npc_id>/meet/
@@ -217,7 +225,7 @@ def list_spawns(request):
     return JsonResponse(data, safe=False)
 
 @csrf_exempt
-@admin_required
+@minecraft_api_key_or_firebase_admin_required
 def create_spawn(request):
     """
     POST /npcs/spawns/create/
@@ -298,6 +306,7 @@ def get_spawns_by_world(request, world_name):
             "meta": spawn.meta,
             # On peut inclure des données du NPC ici pour éviter une 2ème requête
             "dialogue": spawn.npc.dialogue,
-            "quest_ids": spawn.npc.quest_ids
+            "quest_links": quest_links_for_npc(spawn.npc.npc_id),
+            "implementation": normalize_implementation(spawn.npc.implementation),
         })
     return JsonResponse(data, safe=False)

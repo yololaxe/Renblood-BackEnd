@@ -27,6 +27,8 @@ class Quest(models.Model):
     npc = models.CharField(max_length=255, blank=True, null=True)
     npcId = models.CharField(max_length=255, blank=True, null=True)
     npcName = models.CharField(max_length=255, blank=True, null=True)
+    startNpcId = models.CharField(max_length=255, blank=True, null=True)
+    completionNpcId = models.CharField(max_length=255, blank=True, null=True)
     type = models.CharField(max_length=50, choices=TYPE_CHOICES, default='Solo')
     
     description = models.JSONField(default=dict) # { "fr": "...", "en": "..." }
@@ -40,6 +42,7 @@ class Quest(models.Model):
     
     beginText = models.JSONField(default=dict, blank=True) # { "fr": "...", "en": "..." }
     endText = models.JSONField(default=dict, blank=True) # { "fr": "...", "en": "..." }
+    implementation = models.JSONField(default=dict, blank=True)
 
     class Meta:
         db_table = "quests"

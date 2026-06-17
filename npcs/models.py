@@ -41,6 +41,7 @@ class Npc(models.Model):
     quest_validator = models.BooleanField(default=False)
     quest_ids = models.JSONField(default=list, blank=True) # List of quest_ids
     dialogue_by_state = models.JSONField(default=dict, blank=True) # { "available": "...", "in_progress": "...", "completed": "..." }
+    implementation = models.JSONField(default=dict, blank=True)
 
     class Meta:
         db_table = "npcs"

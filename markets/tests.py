@@ -16,6 +16,7 @@ from .models import (
 from .permissions import HasMinecraftApiKey
 from .serializers import (
     AdminCounterModerationSerializer,
+    MarketItemReferenceSerializer,
     MerchantCounterSerializer, MinecraftCounterItemSerializer, MinecraftCounterSerializer,
     MinecraftReferenceItemSerializer, MinecraftTransactionSerializer,
     MinecraftWithdrawalSerializer,
@@ -27,10 +28,86 @@ from .services import (
 )
 from .views import (
     AdminCounterDisableView, AdminDashboardView, AdminEconomyActivityView,
-    AdminRecalculateView, MinecraftCurrentPricesView,
+    AdminRecalculateView, AdminReferenceItemDetailView,
+    AdminReferenceItemListCreateView, MinecraftCurrentPricesView,
     MinecraftCounterItemDetailView, MinecraftCounterItemListCreateView,
-    MinecraftWithdrawalCreateView, PublicMarketPricesView,
+    MinecraftReferenceItemListView,
+    MinecraftWithdrawalCreateView, MinecraftXpReferenceItemListView,
+    PublicMarketPricesView, minecraft_admin_audit,
 )
+
+
+class ReferenceItemRecalculationTests(SimpleTestCase):
+    def setUp(self):
+        self.request = SimpleNamespace(headers={"X-Firebase-Uid": "admin-1"})
+
+    @patch("markets.views.recalculate_prices")
+    def test_create_reference_item_recalculates_prices(self, recalculate_mock):
+        serializer = Mock()
+        view = AdminReferenceItemListCreateView()
+        view.request = self.request
+
+        view.perform_create(serializer)
+
+        serializer.save.assert_called_once_with()
+        recalculate_mock.assert_called_once_with(triggered_by="admin-1", trigger_source="WEBSITE")
+
+    @patch("markets.views.recalculate_prices")
+    def test_update_reference_item_recalculates_prices(self, recalculate_mock):
+        serializer = Mock()
+        view = AdminReferenceItemDetailView()
+        view.request = self.request
+
+        view.perform_update(serializer)
+
+        serializer.save.assert_called_once_with()
+        recalculate_mock.assert_called_once_with(triggered_by="admin-1", trigger_source="WEBSITE")
+
+    @patch("markets.views.recalculate_prices")
+    def test_disable_reference_item_recalculates_prices(self, recalculate_mock):
+        item = Mock()
+        view = AdminReferenceItemDetailView()
+        view.get_object = Mock(return_value=item)
+
+        response = view.delete(self.request)
+
+        self.assertFalse(item.enabled)
+        item.save.assert_called_once_with(update_fields=["enabled", "updated_at"])
+        recalculate_mock.assert_called_once_with(triggered_by="admin-1", trigger_source="WEBSITE")
+        self.assertEqual(response.status_code, 204)
+
+
+class ReferenceItemSerializerTests(SimpleTestCase):
+    def setUp(self):
+        self.item = MarketItemReference(
+            item_id="minecraft:oak_log",
+            display_name="Buche de chene",
+            category="WOOD",
+            reference_price=32,
+            min_price=1,
+        )
+
+    def test_partial_update_accepts_frontend_camel_case_prices(self):
+        serializer = MarketItemReferenceSerializer(
+            self.item,
+            data={"referencePrice": 4, "minPrice": 2, "maxPrice": 10},
+            partial=True,
+        )
+
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        self.assertEqual(serializer.validated_data["reference_price"], 4)
+        self.assertEqual(serializer.validated_data["min_price"], 2)
+        self.assertEqual(serializer.validated_data["max_price"], 10)
+
+    def test_conflicting_camel_and_snake_case_values_are_rejected(self):
+        serializer = MarketItemReferenceSerializer(
+            self.item,
+            data={"referencePrice": 4, "reference_price": 32},
+            partial=True,
+        )
+
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("referencePrice", serializer.errors)
 
 
 class PriceCalculationUnitTests(SimpleTestCase):
@@ -214,6 +291,47 @@ class MinecraftApiKeyUnitTests(SimpleTestCase):
         request = APIRequestFactory().get("/", HTTP_X_API_KEY="secret")
         self.assertTrue(HasMinecraftApiKey().has_permission(request, None))
 
+    @override_settings(API_KEY_RENBLOOD="secret")
+    def test_api_key_permission_accepts_bearer_server_key(self):
+        request = APIRequestFactory().get("/", HTTP_AUTHORIZATION="Bearer secret")
+        self.assertTrue(HasMinecraftApiKey().has_permission(request, None))
+
+    def test_reference_items_queryset_filters_enabled_in_python_for_djongo(self):
+        enabled = MarketItemReference(item_id="minecraft:bread", enabled=True)
+        disabled = MarketItemReference(item_id="minecraft:hidden", enabled=False)
+        view = MinecraftReferenceItemListView()
+
+        with patch("markets.views.MarketItemReference.objects.all") as all_mock:
+            all_mock.return_value.order_by.return_value = [disabled, enabled]
+            queryset = view.get_queryset()
+
+        self.assertEqual(queryset, [enabled])
+        all_mock.assert_called_once_with()
+
+    def test_xp_reference_items_queryset_filters_enabled_items_with_xp(self):
+        enabled = MarketItemReference(item_id="minecraft:bread", enabled=True, reference_xp=1.5)
+        no_xp = MarketItemReference(item_id="minecraft:stick", enabled=True, reference_xp=None)
+        disabled = MarketItemReference(item_id="minecraft:hidden", enabled=False, reference_xp=10)
+        view = MinecraftXpReferenceItemListView()
+
+        with patch("markets.views.MarketItemReference.objects.all") as all_mock:
+            all_mock.return_value.order_by.return_value = [disabled, no_xp, enabled]
+            queryset = view.get_queryset()
+
+        self.assertEqual(queryset, [enabled])
+        all_mock.assert_called_once_with()
+
+    def test_minecraft_admin_audit_accepts_json(self):
+        request = APIRequestFactory().post(
+            "/minecraft/admin/audit/",
+            {"source": "Admin", "minecraft_uuid": "uuid", "command": "say hello"},
+            format="json",
+        )
+
+        response = minecraft_admin_audit(request)
+
+        self.assertEqual(response.status_code, 201)
+
 
 class MarketUrlUnitTests(SimpleTestCase):
     def test_public_prices_compatibility_url_resolves(self):
@@ -222,10 +340,15 @@ class MarketUrlUnitTests(SimpleTestCase):
     def test_recalculate_url_resolves(self):
         self.assertEqual(resolve("/markets/recalculate/").url_name, "market-recalculate")
 
+    def test_minecraft_admin_audit_url_resolves(self):
+        self.assertEqual(resolve("/minecraft/admin/audit/").url_name, "minecraft-admin-audit")
+
     def test_minecraft_market_urls_resolve(self):
         self.assertEqual(resolve("/minecraft/markets/prices/current/").url_name, "minecraft-market-prices")
         self.assertEqual(resolve("/minecraft/markets/counters/counter-1/").url_name, "minecraft-market-counter-detail")
         self.assertEqual(resolve("/minecraft/markets/reference-items/").url_name, "minecraft-reference-items")
+        self.assertEqual(resolve("/minecraft/jobs/xp-references/").url_name, "minecraft-xp-references")
+        self.assertEqual(resolve("/minecraft/xp/reference-items/").url_name, "minecraft-xp-reference-items")
         self.assertEqual(
             resolve("/minecraft/markets/counters/counter-1/items/").url_name,
             "minecraft-counter-items",
@@ -520,11 +643,12 @@ class MinecraftMarketContractTests(SimpleTestCase):
     def test_reference_item_serializer_uses_camel_case(self):
         item = MarketItemReference(
             id="item-1", item_id="minecraft:bread", display_name="Pain",
-            category="FOOD", reference_price=64, enabled=True,
+            category="FOOD", reference_price=64, reference_xp=2.5, enabled=True,
         )
         data = MinecraftReferenceItemSerializer(item).data
         self.assertEqual(data["itemId"], "minecraft:bread")
         self.assertEqual(data["referencePrice"], 64)
+        self.assertEqual(data["referenceXp"], 2.5)
         self.assertNotIn("reference_price", data)
 
     def test_counter_item_auto_price_requires_reference_item(self):

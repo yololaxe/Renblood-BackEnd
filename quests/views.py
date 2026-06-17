@@ -4,7 +4,7 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from .models import Quest, PlayerQuestState
 from players.models import Player
-from utils.decorators import admin_required
+from utils.decorators import admin_required, minecraft_api_key_or_firebase_admin_required
 import json
 
 @csrf_exempt
@@ -34,8 +34,6 @@ def list_quests(request):
             "category": quest.category,
             "type": quest.type,
             "npc": quest.npc,
-            "npcId": quest.npcId,
-            "npcName": quest.npcName,
             "description": quest.description,
             "prerequisitesAll": quest.prerequisitesAll,
             "prerequisitesAny": quest.prerequisitesAny,
@@ -74,8 +72,6 @@ def create_quest(request):
             category=data["category"],
             type=data.get("type", "Solo"),
             npc=data.get("npc"),
-            npcId=data.get("npcId") or data.get("npc_id"),
-            npcName=data.get("npcName") or data.get("npc_name") or data.get("npc"),
             description=data.get("description", {}),
             prerequisitesAll=data.get("prerequisitesAll", []),
             prerequisitesAny=data.get("prerequisitesAny", []),
@@ -121,8 +117,6 @@ def _quest_detail_handler(request, quest_id):
             "category": quest.category,
             "type": quest.type,
             "npc": quest.npc,
-            "npcId": quest.npcId,
-            "npcName": quest.npcName,
             "description": quest.description,
             "prerequisitesAll": quest.prerequisitesAll,
             "prerequisitesAny": quest.prerequisitesAny,
@@ -181,7 +175,7 @@ def get_player_quests(request, player_id):
     return JsonResponse(data, safe=False)
 
 @csrf_exempt
-@admin_required
+@minecraft_api_key_or_firebase_admin_required
 def update_player_quest_status(request, player_id):
     """
     POST /quests/player/<player_id>/update/
@@ -291,8 +285,6 @@ def get_player_active_quests(request, player_id):
                 "category": quest.category,
                 "type": quest.type,
                 "npc": quest.npc,
-                "npcId": quest.npcId,
-                "npcName": quest.npcName,
                 "objectives": quest.objectives,
                 "startedAt": state.startedAt,
                 "members": state.members
@@ -320,7 +312,7 @@ def get_player_active_quests_by_mc_id(request, mc_id):
     return get_player_active_quests(request, player.id)
 
 @csrf_exempt
-@admin_required
+@minecraft_api_key_or_firebase_admin_required
 def join_multiplayer_quest(request, quest_id):
     """
     POST /quests/<quest_id>/join/
@@ -443,7 +435,7 @@ def update_quest_objective_npc(request, quest_id):
         return JsonResponse({"error": "JSON invalide"}, status=400)
 
 @csrf_exempt
-@admin_required
+@minecraft_api_key_or_firebase_admin_required
 def cancel_player_quest(request, player_id):
     """
     POST /quests/player/<player_id>/cancel/

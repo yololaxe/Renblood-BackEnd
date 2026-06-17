@@ -1,5 +1,5 @@
-import os
 import json
+import os
 from pathlib import Path
 
 import firebase_admin
@@ -10,37 +10,50 @@ from RenbloodBackEnd.environment import load_environment
 
 load_environment(Path(__file__).resolve().parent.parent)
 
+
+def _get_project_id(credential_data=None):
+    return (
+        os.getenv("FIREBASE_PROJECT_ID", "").strip()
+        or os.getenv("GOOGLE_CLOUD_PROJECT", "").strip()
+        or (credential_data or {}).get("project_id")
+    )
+
+
 def initialize_firebase():
-    """
-    Initialise Firebase Admin SDK.
-    Essaie d'abord d'utiliser un dictionnaire (depuis une variable d'environnement JSON),
-    sinon retombe sur GOOGLE_APPLICATION_CREDENTIALS (fichier local).
-    """
-    if not firebase_admin._apps:
-        # 1. Essayer avec une variable d'environnement contenant le JSON complet (Pour la PROD - Railway)
-        firebase_json_str = os.getenv('FIREBASE_SERVICE_ACCOUNT_JSON')
-        
-        if firebase_json_str:
-            try:
-                # Convertir la string JSON en dictionnaire Python
-                cred_dict = json.loads(firebase_json_str)
-                cred = credentials.Certificate(cred_dict)
-                firebase_admin.initialize_app(cred, {
-                    'projectId': os.getenv('FIREBASE_PROJECT_ID'),
-                })
-                print("Firebase Admin initialisé via JSON (Prod)")
-                return
-            except Exception as e:
-                print(f"Erreur lors de l'initialisation Firebase via JSON: {e}")
-        
-        # 2. Si pas de JSON en variable, on essaie via le fichier (Pour le DEV - Local)
-        # GOOGLE_APPLICATION_CREDENTIALS doit pointer vers le fichier .json
+    """Initialize Firebase Admin from production JSON or local credentials."""
+    if firebase_admin._apps:
+        return
+
+    firebase_json_str = os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON")
+    if firebase_json_str:
         try:
-            cred = credentials.ApplicationDefault()
-            firebase_admin.initialize_app(cred, {
-                'projectId': os.getenv('FIREBASE_PROJECT_ID'),
-            })
-            print("Firebase Admin initialisé via Fichier (Local)")
-        except Exception as e:
-             print(f"Erreur lors de l'initialisation Firebase via ApplicationDefault: {e}")
-             print("Assurez-vous que GOOGLE_APPLICATION_CREDENTIALS ou FIREBASE_SERVICE_ACCOUNT_JSON sont définis.")
+            credential_data = json.loads(firebase_json_str)
+            project_id = _get_project_id(credential_data)
+            if not project_id:
+                raise RuntimeError("FIREBASE_PROJECT_ID est requis.")
+
+            credential = credentials.Certificate(credential_data)
+            firebase_admin.initialize_app(credential, {"projectId": project_id})
+            print("Firebase Admin initialise via JSON (Prod)")
+            return
+        except Exception as exc:
+            raise RuntimeError(
+                "Impossible d'initialiser Firebase Admin depuis "
+                "FIREBASE_SERVICE_ACCOUNT_JSON."
+            ) from exc
+
+    project_id = _get_project_id()
+    if not project_id:
+        raise RuntimeError(
+            "FIREBASE_PROJECT_ID ou GOOGLE_CLOUD_PROJECT est requis."
+        )
+
+    try:
+        credential = credentials.ApplicationDefault()
+        firebase_admin.initialize_app(credential, {"projectId": project_id})
+        print("Firebase Admin initialise via Fichier (Local)")
+    except Exception as exc:
+        raise RuntimeError(
+            "Impossible d'initialiser Firebase Admin. Definissez "
+            "FIREBASE_PROJECT_ID et GOOGLE_APPLICATION_CREDENTIALS en local."
+        ) from exc

@@ -7,7 +7,7 @@ from django.shortcuts import get_object_or_404
 from .models import Player, Licence
 from jobs.models import Trait, Action
 from players.stats_views import PlayerStatsViewSet
-from utils.decorators import admin_required
+from utils.decorators import admin_required, minecraft_api_key_or_firebase_admin_required
 
 
 
@@ -442,7 +442,7 @@ LEVEL_THRESHOLDS = [
 ]
 
 @csrf_exempt
-@admin_required
+@minecraft_api_key_or_firebase_admin_required
 def update_job_level(request, player_id, job_name):
     """
     Met à jour le level d'un métier d'un joueur en fonction de son xp.
@@ -631,7 +631,7 @@ def get_player_by_minecraft(request, mc_id):
     return JsonResponse(response_data)
 
 @csrf_exempt
-@admin_required
+@minecraft_api_key_or_firebase_admin_required
 def deposit_player(request, player_id):
     if request.method != "POST":
         return JsonResponse({"error": "Méthode non autorisée"}, status=405)
@@ -658,7 +658,7 @@ def deposit_player(request, player_id):
 
 
 @csrf_exempt
-@admin_required
+@minecraft_api_key_or_firebase_admin_required
 def withdraw_player(request, player_id):
     if request.method != "POST":
         return JsonResponse({"error": "Méthode non autorisée"}, status=405)
@@ -704,7 +704,7 @@ def withdraw_player(request, player_id):
     }, status=200)
 
 @csrf_exempt
-@admin_required
+@minecraft_api_key_or_firebase_admin_required
 def manage_job_xp(request, mc_id):
     """
     POST /players/manage_job_xp/<mc_id>/
@@ -778,7 +778,7 @@ def manage_job_xp(request, mc_id):
     }, status=200)
 
 @csrf_exempt
-@admin_required
+@minecraft_api_key_or_firebase_admin_required
 def manage_player_licences(request, mc_id):
     """
     POST /players/licences/<mc_id>/

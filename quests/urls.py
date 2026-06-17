@@ -1,10 +1,12 @@
 from django.urls import path
 from .views import (
-    list_quests, create_quest, quest_detail, 
     get_player_quests, update_player_quest_status, list_all_player_quest_states, 
-    get_player_active_quests, join_multiplayer_quest, 
-    update_quest_start_npc, update_quest_objective_npc, 
+    get_player_active_quests, join_multiplayer_quest,
     get_player_active_quests_by_mc_id, cancel_player_quest
+)
+from .api_views import (
+    list_quests, create_quest, quest_detail,
+    update_quest_start_npc, update_quest_objective_npc,
 )
 
 urlpatterns = [

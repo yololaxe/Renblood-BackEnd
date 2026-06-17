@@ -1,5 +1,6 @@
 from django.urls import path
-from .views import list_npcs, create_npc, npc_detail, list_spawns, create_spawn, get_spawns_by_world, meet_npc
+from .api_views import list_npcs, create_npc, npc_detail
+from .views import list_spawns, create_spawn, get_spawns_by_world, meet_npc
 
 urlpatterns = [
     # NPCs

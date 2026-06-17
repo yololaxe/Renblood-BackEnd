@@ -1,7 +1,10 @@
+import json
 import logging
 
 from django.conf import settings
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
+from django.views.decorators.csrf import csrf_exempt
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -24,6 +27,7 @@ from .serializers import (
     MinecraftCounterItemSerializer, MinecraftCounterSerializer,
     MinecraftReferenceItemSerializer, MinecraftTransactionSerializer,
     MinecraftWithdrawalSerializer,
+    MinecraftXpReferenceSerializer,
     PriceCalculationRunSerializer,
     RecomputeActivitySerializer,
 )
@@ -47,6 +51,25 @@ def _filter(queryset, request, allowed):
 
 def _request_actor(request):
     return request.headers.get("X-Firebase-Uid") or request.headers.get("X-Admin-Id") or "admin"
+
+
+@csrf_exempt
+def minecraft_admin_audit(request):
+    if request.method != "POST":
+        return JsonResponse({"error": "Method not allowed"}, status=405)
+
+    try:
+        payload = json.loads(request.body or b"{}")
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+    logger.info(
+        "Minecraft admin audit source=%s minecraft_uuid=%s command=%s",
+        payload.get("source"),
+        payload.get("minecraft_uuid"),
+        payload.get("command"),
+    )
+    return JsonResponse({"ok": True}, status=201)
 
 
 def _apply_counter_moderation_filters(counters, request):
@@ -145,16 +168,25 @@ class AdminReferenceItemListCreateView(generics.ListCreateAPIView):
     serializer_class = MarketItemReferenceSerializer
     queryset = MarketItemReference.objects.all()
 
+    def perform_create(self, serializer):
+        serializer.save()
+        recalculate_prices(triggered_by=_request_actor(self.request), trigger_source="WEBSITE")
+
 
 class AdminReferenceItemDetailView(generics.RetrieveUpdateAPIView):
     permission_classes = [IsRenbloodAdmin]
     serializer_class = MarketItemReferenceSerializer
     queryset = MarketItemReference.objects.all()
 
+    def perform_update(self, serializer):
+        serializer.save()
+        recalculate_prices(triggered_by=_request_actor(self.request), trigger_source="WEBSITE")
+
     def delete(self, request, *args, **kwargs):
         item = self.get_object()
         item.enabled = False
         item.save(update_fields=["enabled", "updated_at"])
+        recalculate_prices(triggered_by=_request_actor(request), trigger_source="WEBSITE")
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -514,7 +546,26 @@ class MinecraftCounterDetailView(generics.RetrieveUpdateAPIView):
 class MinecraftReferenceItemListView(generics.ListAPIView):
     permission_classes = [HasMinecraftApiKey]
     serializer_class = MinecraftReferenceItemSerializer
-    queryset = MarketItemReference.objects.filter(enabled=True)
+
+    def get_queryset(self):
+        return sorted(
+            (item for item in MarketItemReference.objects.all().order_by() if item.enabled),
+            key=lambda item: item.item_id,
+        )
+
+
+class MinecraftXpReferenceItemListView(generics.ListAPIView):
+    permission_classes = [HasMinecraftApiKey]
+    serializer_class = MinecraftXpReferenceSerializer
+
+    def get_queryset(self):
+        return sorted(
+            (
+                item for item in MarketItemReference.objects.all().order_by()
+                if item.enabled and item.reference_xp is not None
+            ),
+            key=lambda item: item.item_id,
+        )
 
 
 class MinecraftCounterItemListCreateView(APIView):

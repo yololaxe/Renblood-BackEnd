@@ -27,6 +27,27 @@ class ValidatingModelSerializer(serializers.ModelSerializer):
 
 
 class MarketItemReferenceSerializer(ValidatingModelSerializer):
+    FIELD_ALIASES = {
+        "itemId": "item_id",
+        "displayName": "display_name",
+        "referencePrice": "reference_price",
+        "referenceXp": "reference_xp",
+        "minPrice": "min_price",
+        "maxPrice": "max_price",
+    }
+
+    def to_internal_value(self, data):
+        normalized = data.copy()
+        for alias, field in self.FIELD_ALIASES.items():
+            if alias not in data:
+                continue
+            if field in data and data[field] != data[alias]:
+                raise serializers.ValidationError({
+                    alias: f"{alias} et {field} ne peuvent pas avoir des valeurs differentes.",
+                })
+            normalized[field] = data[alias]
+        return super().to_internal_value(normalized)
+
     class Meta:
         model = MarketItemReference
         fields = "__all__"
@@ -252,10 +273,22 @@ class MinecraftReferenceItemSerializer(serializers.ModelSerializer):
     itemId = serializers.CharField(source="item_id", read_only=True)
     displayName = serializers.CharField(source="display_name", read_only=True)
     referencePrice = serializers.IntegerField(source="reference_price", read_only=True)
+    referenceXp = serializers.FloatField(source="reference_xp", read_only=True)
 
     class Meta:
         model = MarketItemReference
-        fields = ("id", "itemId", "displayName", "category", "referencePrice", "enabled")
+        fields = ("id", "itemId", "displayName", "category", "referencePrice", "referenceXp", "enabled")
+        read_only_fields = fields
+
+
+class MinecraftXpReferenceSerializer(serializers.ModelSerializer):
+    itemId = serializers.CharField(source="item_id", read_only=True)
+    displayName = serializers.CharField(source="display_name", read_only=True)
+    xpAmount = serializers.FloatField(source="reference_xp", read_only=True)
+
+    class Meta:
+        model = MarketItemReference
+        fields = ("id", "itemId", "displayName", "category", "xpAmount", "enabled")
         read_only_fields = fields
 
 
