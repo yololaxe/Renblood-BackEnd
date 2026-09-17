@@ -296,6 +296,11 @@ class MinecraftApiKeyUnitTests(SimpleTestCase):
         request = APIRequestFactory().get("/", HTTP_AUTHORIZATION="Bearer secret")
         self.assertTrue(HasMinecraftApiKey().has_permission(request, None))
 
+    @override_settings(API_KEY_RENBLOOD=' "secret" ')
+    def test_api_key_permission_normalizes_railway_value(self):
+        request = APIRequestFactory().get("/", HTTP_X_API_KEY="secret")
+        self.assertTrue(HasMinecraftApiKey().has_permission(request, None))
+
     def test_reference_items_endpoint_uses_minecraft_api_key_permission(self):
         self.assertEqual(MinecraftReferenceItemListView.permission_classes, [HasMinecraftApiKey])
         self.assertEqual(MinecraftReferenceItemListView.authentication_classes, [])
