@@ -328,6 +328,17 @@ def get_players(request, rank):
     return JsonResponse(list(players_data), safe=False)
 
 
+def get_public_stats(request):
+    from jobs.models import Job
+    from quests.models import Quest
+
+    return JsonResponse({
+        "players": Player.objects.count(),
+        "quests": Quest.objects.count(),
+        "jobs": Job.objects.count(),
+    })
+
+
 @csrf_exempt
 @admin_required
 def manage_player_traits_actions(request, player_id, category, action):

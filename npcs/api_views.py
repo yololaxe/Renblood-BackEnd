@@ -8,7 +8,8 @@ from django.views.decorators.csrf import csrf_exempt
 from quests.contracts import normalize_implementation, quest_links_for_npc
 from utils.decorators import admin_required, minecraft_api_key_or_firebase_admin_required
 
-from .models import Npc
+from .models import Npc, NpcSpawn, NpcChange
+from .change_log import record_change
 
 
 JSON_DEFAULTS = {
@@ -44,6 +45,59 @@ def npc_payload(npc, quests=None):
         "implementation": normalize_implementation(npc.implementation),
         "quest_links": quest_links,
     }
+
+
+def spawn_payload(spawn):
+    npc = spawn.npc
+    return {
+        "spawn_id": spawn.spawn_id,
+        "npc_id": npc.npc_id,
+        "npc_name": npc.name,
+        "npc_type": npc.type,
+        "npc_skin": npc.skin,
+        "world": spawn.world,
+        "x": spawn.x,
+        "y": spawn.y,
+        "z": spawn.z,
+        "yaw": spawn.yaw,
+        "pitch": spawn.pitch,
+        "spawn_rule": spawn.spawn_rule,
+        "active": spawn.active,
+        "meta": spawn.meta,
+        "dialogue": npc.dialogue,
+        "quest_links": quest_links_for_npc(npc.npc_id),
+        "implementation": normalize_implementation(npc.implementation),
+    }
+
+
+@csrf_exempt
+def npc_changes(request):
+    if request.method != "GET":
+        return JsonResponse({"error": "Methode non autorisee"}, status=405)
+    try:
+        since = max(0, int(request.GET.get("since", 0)))
+    except (TypeError, ValueError):
+        return JsonResponse({"error": "since doit etre un entier"}, status=400)
+
+    changes = list(NpcChange.objects.filter(revision__gt=since).order_by("revision"))
+    latest = changes[-1].revision if changes else since
+    npc_ids = {change.entity_id for change in changes if change.entity_type == "NPC" and change.action == "UPSERT"}
+    spawn_ids = {change.entity_id for change in changes if change.entity_type == "SPAWN" and change.action == "UPSERT"}
+    removed_npcs = {change.entity_id for change in changes if change.entity_type == "NPC" and change.action == "DELETE"}
+    removed_spawns = {change.entity_id for change in changes if change.entity_type == "SPAWN" and change.action == "DELETE"}
+
+    for npc_id in npc_ids:
+        spawn_ids.update(NpcSpawn.objects.filter(npc_id=npc_id).values_list("spawn_id", flat=True))
+
+    npcs = Npc.objects.filter(npc_id__in=npc_ids)
+    spawns = NpcSpawn.objects.filter(spawn_id__in=spawn_ids).select_related("npc")
+    return JsonResponse({
+        "revision": latest,
+        "npcs": [npc_payload(npc) for npc in npcs],
+        "spawns": [spawn_payload(spawn) for spawn in spawns],
+        "removed_npcs": sorted(removed_npcs),
+        "removed_spawns": sorted(removed_spawns),
+    })
 
 
 @csrf_exempt
@@ -87,6 +141,7 @@ def create_npc(request):
             dialogue_by_state=data.get("dialogue_by_state", {}),
             implementation=normalize_implementation(data.get("implementation")),
         )
+        record_change("NPC", npc.npc_id, "UPSERT")
         return JsonResponse(npc_payload(npc), status=201)
     except (json.JSONDecodeError, ValueError) as exc:
         return JsonResponse({"error": str(exc)}, status=400)
@@ -105,6 +160,9 @@ def npc_detail(request, npc_id):
     @minecraft_api_key_or_firebase_admin_required
     def protected_view(protected_request):
         if protected_request.method == "DELETE":
+            for spawn_id in NpcSpawn.objects.filter(npc=npc).values_list("spawn_id", flat=True):
+                record_change("SPAWN", spawn_id, "DELETE")
+            record_change("NPC", npc.npc_id, "DELETE")
             npc.delete()
             return JsonResponse({"message": "NPC supprime"})
         if protected_request.method != "PUT":
@@ -120,6 +178,7 @@ def npc_detail(request, npc_id):
                 if field not in blocked and hasattr(npc, field):
                     setattr(npc, field, value)
             npc.save()
+            record_change("NPC", npc.npc_id, "UPSERT")
             return JsonResponse(npc_payload(npc))
         except (json.JSONDecodeError, ValueError) as exc:
             return JsonResponse({"error": str(exc)}, status=400)

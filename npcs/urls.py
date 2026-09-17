@@ -1,10 +1,11 @@
 from django.urls import path
-from .api_views import list_npcs, create_npc, npc_detail
+from .api_views import list_npcs, create_npc, npc_detail, npc_changes
 from .views import list_spawns, create_spawn, get_spawns_by_world, meet_npc
 
 urlpatterns = [
     # NPCs
     path('list/', list_npcs, name='list_npcs'),
+    path('changes/', npc_changes, name='npc_changes'),
     path('create/', create_npc, name='create_npc'),
     path('<str:npc_id>/', npc_detail, name='npc_detail'),
     path('<str:npc_id>/meet/', meet_npc, name='meet_npc'),

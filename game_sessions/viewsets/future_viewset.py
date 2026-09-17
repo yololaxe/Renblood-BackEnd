@@ -110,6 +110,11 @@ class FutureViewSet(viewsets.ModelViewSet):
                 "id": p.id,
                 "name": p.name,
                 "pseudo_minecraft": getattr(p, "pseudo_minecraft", None),
+                "surname": getattr(p, "surname", None),
+                "rank": getattr(p, "rank", None),
+                "discord_id": getattr(p, "discord_id", None),
+                "discord_avatar": getattr(p, "discord_avatar", None),
+                "money": getattr(p, "money", 0),
             }
             f = future_map.get(p.id)
             future_data = FutureSerializer(f).data if f else None

@@ -4,7 +4,9 @@ from unittest.mock import patch
 
 from django.test import RequestFactory, SimpleTestCase, override_settings
 
+from npcs.api_views import npc_changes
 from npcs.views import meet_npc
+from npcs.models import NpcChange
 from utils.decorators import minecraft_admin_or_firebase_admin_required
 
 
@@ -110,3 +112,35 @@ class MinecraftNpcGameplayAuthenticationTests(SimpleTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(npc.met_by, ["firebase-1"])
         self.assertTrue(npc.saved)
+
+
+class NpcChangeEndpointTests(SimpleTestCase):
+    def setUp(self):
+        self.factory = RequestFactory()
+
+    def test_rejects_invalid_revision(self):
+        response = npc_changes(self.factory.get("/npcs/changes/?since=bad"))
+        self.assertEqual(response.status_code, 400)
+
+    @patch("npcs.api_views.NpcSpawn.objects.filter")
+    @patch("npcs.api_views.Npc.objects.filter")
+    @patch("npcs.api_views.NpcChange.objects.filter")
+    def test_returns_revision_and_removed_ids(self, changes_filter, npcs_filter, spawns_filter):
+        change = SimpleNamespace(
+            revision=7,
+            entity_type="SPAWN",
+            entity_id="spawn-7",
+            action="DELETE",
+        )
+        changes_filter.return_value.order_by.return_value = [change]
+        npcs_filter.return_value = []
+        spawns_filter.return_value.select_related.return_value = []
+
+        response = npc_changes(self.factory.get("/npcs/changes/?since=4"))
+
+        self.assertEqual(response.status_code, 200)
+        payload = json.loads(response.content)
+        self.assertEqual(payload["revision"], 7)
+        self.assertEqual(payload["removed_spawns"], ["spawn-7"])
+        self.assertEqual(payload["npcs"], [])
+        self.assertEqual(payload["spawns"], [])

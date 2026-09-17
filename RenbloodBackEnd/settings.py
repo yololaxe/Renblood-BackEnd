@@ -139,11 +139,21 @@ CORS_ALLOW_HEADERS = list(default_headers) + [
 
 ASGI_APPLICATION = "RenbloodBackEnd.asgi.application"
 
-CHANNEL_LAYERS = {
-    "default": {
-        "BACKEND": "channels.layers.InMemoryChannelLayer",
+REDIS_URL = os.getenv("REDIS_URL")
+CHANNEL_LAYERS = (
+    {
+        "default": {
+            "BACKEND": "channels_redis.core.RedisChannelLayer",
+            "CONFIG": {"hosts": [REDIS_URL]},
+        }
     }
-}
+    if REDIS_URL
+    else {
+        "default": {
+            "BACKEND": "channels.layers.InMemoryChannelLayer",
+        }
+    }
+)
 
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_METHODS = [

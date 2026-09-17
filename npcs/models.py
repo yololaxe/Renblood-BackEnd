@@ -78,3 +78,19 @@ class NpcSpawn(models.Model):
 
     def __str__(self):
         return f"{self.spawn_id} - {self.npc.name} @ {self.x},{self.y},{self.z}"
+
+
+class NpcChange(models.Model):
+    ENTITY_CHOICES = [("NPC", "NPC"), ("SPAWN", "SPAWN")]
+    ACTION_CHOICES = [("UPSERT", "UPSERT"), ("DELETE", "DELETE")]
+
+    revision = models.BigAutoField(primary_key=True)
+    entity_type = models.CharField(max_length=16, choices=ENTITY_CHOICES)
+    entity_id = models.CharField(max_length=255)
+    action = models.CharField(max_length=16, choices=ACTION_CHOICES)
+    payload = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "npc_changes"
+        ordering = ["revision"]

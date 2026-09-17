@@ -3,6 +3,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.shortcuts import get_object_or_404
 from django.db import IntegrityError
 from .models import Npc, NpcSpawn
+from .change_log import record_change
 from quests.contracts import normalize_implementation, quest_links_for_npc
 from utils.decorators import admin_required, minecraft_api_key_or_firebase_admin_required
 import json
@@ -270,6 +271,7 @@ def create_spawn(request):
             active=data.get("active", True),
             meta=data.get("meta", {})
         )
+        record_change("SPAWN", spawn.spawn_id, "UPSERT")
         
         return JsonResponse({"message": "Spawn créé avec succès", "spawn_id": spawn.spawn_id}, status=201)
 
