@@ -296,6 +296,10 @@ class MinecraftApiKeyUnitTests(SimpleTestCase):
         request = APIRequestFactory().get("/", HTTP_AUTHORIZATION="Bearer secret")
         self.assertTrue(HasMinecraftApiKey().has_permission(request, None))
 
+    def test_reference_items_endpoint_uses_minecraft_api_key_permission(self):
+        self.assertEqual(MinecraftReferenceItemListView.permission_classes, [HasMinecraftApiKey])
+        self.assertEqual(MinecraftReferenceItemListView.authentication_classes, [])
+
     def test_reference_items_queryset_filters_enabled_in_python_for_djongo(self):
         enabled = MarketItemReference(item_id="minecraft:bread", enabled=True)
         disabled = MarketItemReference(item_id="minecraft:hidden", enabled=False)

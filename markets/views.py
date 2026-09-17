@@ -544,6 +544,9 @@ class MinecraftCounterDetailView(generics.RetrieveUpdateAPIView):
 
 
 class MinecraftReferenceItemListView(generics.ListAPIView):
+    # Server-to-server endpoint: do not let user/Firebase authenticators reject
+    # the server Bearer value before HasMinecraftApiKey checks X-API-KEY.
+    authentication_classes = []
     permission_classes = [HasMinecraftApiKey]
     serializer_class = MinecraftReferenceItemSerializer
 
@@ -552,6 +555,23 @@ class MinecraftReferenceItemListView(generics.ListAPIView):
             (item for item in MarketItemReference.objects.all().order_by() if item.enabled),
             key=lambda item: item.item_id,
         )
+
+    def post(self, request):
+        payload = request.data.copy()
+        item_id = payload.get("item_id") or payload.get("itemId")
+        if not item_id:
+            return Response({"item_id": ["Ce champ est obligatoire."]}, status=status.HTTP_400_BAD_REQUEST)
+
+        existing = next(
+            (item for item in MarketItemReference.objects.all().order_by() if item.item_id == item_id),
+            None,
+        )
+        serializer = MarketItemReferenceSerializer(existing, data=payload, partial=existing is not None)
+        serializer.is_valid(raise_exception=True)
+        item = serializer.save()
+        recalculate_prices(triggered_by="minecraft-server", trigger_source="MINECRAFT_COMMAND")
+        return Response(MinecraftReferenceItemSerializer(item).data,
+                        status=status.HTTP_200_OK if existing else status.HTTP_201_CREATED)
 
 
 class MinecraftXpReferenceItemListView(generics.ListAPIView):
