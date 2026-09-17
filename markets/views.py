@@ -551,10 +551,12 @@ class MinecraftReferenceItemListView(generics.ListAPIView):
     serializer_class = MinecraftReferenceItemSerializer
 
     def get_queryset(self):
-        return sorted(
+        items = sorted(
             (item for item in MarketItemReference.objects.all().order_by() if item.enabled),
             key=lambda item: item.item_id,
         )
+        logger.info("Minecraft reference items served count=%s", len(items))
+        return items
 
     def post(self, request):
         payload = request.data.copy()
@@ -568,7 +570,17 @@ class MinecraftReferenceItemListView(generics.ListAPIView):
         )
         serializer = MarketItemReferenceSerializer(existing, data=payload, partial=existing is not None)
         serializer.is_valid(raise_exception=True)
+        unchanged = existing is not None and all(
+            getattr(existing, field) == value
+            for field, value in serializer.validated_data.items()
+        )
+        if unchanged:
+            logger.info("Minecraft reference item unchanged item_id=%s", item_id)
+            return Response(MinecraftReferenceItemSerializer(existing).data, status=status.HTTP_200_OK)
+
         item = serializer.save()
+        logger.info("Minecraft reference item %s item_id=%s reference_price=%s",
+                    "updated" if existing else "created", item.item_id, item.reference_price)
         recalculate_prices(triggered_by="minecraft-server", trigger_source="MINECRAFT_COMMAND")
         return Response(MinecraftReferenceItemSerializer(item).data,
                         status=status.HTTP_200_OK if existing else status.HTTP_201_CREATED)

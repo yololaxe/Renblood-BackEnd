@@ -317,6 +317,36 @@ class MinecraftApiKeyUnitTests(SimpleTestCase):
         self.assertEqual(queryset, [enabled])
         all_mock.assert_called_once_with()
 
+    @patch("markets.views.recalculate_prices")
+    @patch("markets.views.MarketItemReference.objects.all")
+    @override_settings(API_KEY_RENBLOOD="secret")
+    def test_reference_item_post_does_not_recalculate_when_unchanged(self, all_mock, recalculate_mock):
+        existing = MarketItemReference(
+            item_id="minecraft:cookie",
+            display_name="Cookie",
+            category="FOOD",
+            reference_price=20,
+            min_price=16,
+            max_price=24,
+            enabled=True,
+        )
+        all_mock.return_value.order_by.return_value = [existing]
+        request = APIRequestFactory().post("/", {
+            "item_id": "minecraft:cookie",
+            "display_name": "Cookie",
+            "category": "FOOD",
+            "reference_price": 20,
+            "min_price": 16,
+            "max_price": 24,
+            "enabled": True,
+        }, format="json", HTTP_X_API_KEY="secret")
+
+        with patch("rest_framework.validators.qs_exists", return_value=False):
+            response = MinecraftReferenceItemListView.as_view()(request)
+
+        self.assertEqual(response.status_code, 200)
+        recalculate_mock.assert_not_called()
+
     def test_xp_reference_items_queryset_filters_enabled_items_with_xp(self):
         enabled = MarketItemReference(item_id="minecraft:bread", enabled=True, reference_xp=1.5)
         no_xp = MarketItemReference(item_id="minecraft:stick", enabled=True, reference_xp=None)
