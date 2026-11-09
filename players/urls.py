@@ -1,4 +1,4 @@
-from django.urls import path
+from django.urls import path, include
 from .views import create_player, player_full_profile, get_player, delete_player, update_player, get_player_jobs, \
     update_player_job, get_players, manage_player_traits_actions, get_me, update_job_level, get_player_by_minecraft, \
     deposit_player, withdraw_player, manage_job_xp, manage_player_licences, get_public_stats
@@ -11,6 +11,7 @@ router.register(r"stats", PlayerStatsViewSet, basename="player-stats")
 router.register(r'discord', DiscordViewSet, basename='discord')
 
 urlpatterns = [
+    path("onboarding/", include("players.onboarding_urls")),
     path('create/', create_player, name="create_player"),
     path('get/<str:player_id>/', get_player, name="get_player"), #Invoke-WebRequest -Uri "http://127.0.0.1:8000/players/get/0kX4gctisIcOKvHDKJmlDRLSLFu2/" -Method GET
     path("get/<str:player_id>/jobs/", get_player_jobs, name="get_player_jobs"), #Invoke-WebRequest -Uri "http://127.0.0.1:8000/players/get/0kX4gctisIcOKvHDKJmlDRLSLFu2/jobs/" -Method GET

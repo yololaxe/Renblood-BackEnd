@@ -48,6 +48,31 @@ def admin_required(view_func):
     return _wrapped_view
 
 
+def player_or_admin_required(view_func):
+    @wraps(view_func)
+    def _wrapped_view(request, *args, **kwargs):
+        player_id = kwargs.get("player_id") or kwargs.get("firebase_uid")
+        if not player_id:
+            return JsonResponse({"error": "Identifiant joueur manquant"}, status=400)
+        auth_header = request.headers.get("Authorization", "")
+        if not auth_header.startswith("Bearer "):
+            return JsonResponse({"error": "Authentification requise"}, status=401)
+        try:
+            decoded_token = auth.verify_id_token(auth_header.split("Bearer ", 1)[1])
+            requester = Player.objects.get(id=decoded_token["uid"])
+        except auth.InvalidIdTokenError:
+            return JsonResponse({"error": "Token Firebase invalide"}, status=401)
+        except Player.DoesNotExist:
+            return JsonResponse({"error": "Joueur introuvable"}, status=403)
+        except Exception:
+            return JsonResponse({"error": "Echec de verification de l'identite"}, status=401)
+        if requester.id != player_id and requester.rank != "Admin":
+            return JsonResponse({"error": "Acces refuse"}, status=403)
+        request.authenticated_player = requester
+        return view_func(request, *args, **kwargs)
+    return _wrapped_view
+
+
 def _request_api_key(request):
     supplied_api_key = request.headers.get("X-API-KEY")
     if supplied_api_key:

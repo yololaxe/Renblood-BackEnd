@@ -35,7 +35,7 @@ def _require_env(name):
 
 DEBUG = _parse_bool(os.getenv("DEBUG"), default=(DJANGO_ENV == "local"))
 
-SECRET_KEY = os.getenv("SECRET_KEY")
+SECRET_KEY = os.getenv("SECRET_KEY") or os.getenv("DJANGO_SECRET_KEY")
 if not SECRET_KEY:
     if DJANGO_ENV == "local":
         SECRET_KEY = "local-development-only"
@@ -62,6 +62,7 @@ if DJANGO_ENV == "production" and MONGO_DB_NAME == "renblood_mongo_staging":
     )
 
 DEFAULT_ALLOWED_HOSTS = [
+    "healthcheck.railway.app",
     "127.0.0.1",
     "localhost",
     "renblood-backend-production.up.railway.app",
@@ -135,6 +136,7 @@ MIDDLEWARE = [
 CORS_ALLOW_HEADERS = list(default_headers) + [
     "x-firebase-uid",
     "x-api-key",
+    "idempotency-key",
 ]
 
 ASGI_APPLICATION = "RenbloodBackEnd.asgi.application"
@@ -196,7 +198,7 @@ DATABASES = {
         "CLIENT": {
             "host": MONGO_URI,
             "tls": True,
-            "tlsAllowInvalidCertificates": True,
+            "tlsAllowInvalidCertificates": False,
         },
     }
 }

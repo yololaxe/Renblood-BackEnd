@@ -5,7 +5,7 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.views.decorators.csrf import csrf_exempt
 
-from quests.contracts import normalize_implementation, quest_links_for_npc
+from quests.contracts import normalize_implementation, quest_links_by_npc, quest_links_for_npc
 from utils.decorators import admin_required, minecraft_api_key_or_firebase_admin_required
 
 from .models import Npc, NpcSpawn, NpcChange
@@ -21,8 +21,8 @@ JSON_DEFAULTS = {
 }
 
 
-def npc_payload(npc, quests=None):
-    quest_links = quest_links_for_npc(npc.npc_id, quests)
+def npc_payload(npc, links=None):
+    quest_links = quest_links_for_npc(npc.npc_id) if links is None else links.get(npc.npc_id, [])
     return {
         "npc_id": npc.npc_id,
         "name": npc.name,
@@ -47,7 +47,7 @@ def npc_payload(npc, quests=None):
     }
 
 
-def spawn_payload(spawn):
+def spawn_payload(spawn, links=None):
     npc = spawn.npc
     return {
         "spawn_id": spawn.spawn_id,
@@ -65,7 +65,7 @@ def spawn_payload(spawn):
         "active": spawn.active,
         "meta": spawn.meta,
         "dialogue": npc.dialogue,
-        "quest_links": quest_links_for_npc(npc.npc_id),
+        "quest_links": quest_links_for_npc(npc.npc_id) if links is None else links.get(npc.npc_id, []),
         "implementation": normalize_implementation(npc.implementation),
     }
 
@@ -86,15 +86,18 @@ def npc_changes(request):
     removed_npcs = {change.entity_id for change in changes if change.entity_type == "NPC" and change.action == "DELETE"}
     removed_spawns = {change.entity_id for change in changes if change.entity_type == "SPAWN" and change.action == "DELETE"}
 
-    for npc_id in npc_ids:
-        spawn_ids.update(NpcSpawn.objects.filter(npc_id=npc_id).values_list("spawn_id", flat=True))
+    if npc_ids:
+        spawn_ids.update(NpcSpawn.objects.filter(npc_id__in=npc_ids).values_list("spawn_id", flat=True))
 
     npcs = Npc.objects.filter(npc_id__in=npc_ids)
     spawns = NpcSpawn.objects.filter(spawn_id__in=spawn_ids).select_related("npc")
+    from quests.models import Quest
+
+    links = quest_links_by_npc(Quest.objects.all()) if npc_ids or spawn_ids else {}
     return JsonResponse({
         "revision": latest,
-        "npcs": [npc_payload(npc) for npc in npcs],
-        "spawns": [spawn_payload(spawn) for spawn in spawns],
+        "npcs": [npc_payload(npc, links) for npc in npcs],
+        "spawns": [spawn_payload(spawn, links) for spawn in spawns],
         "removed_npcs": sorted(removed_npcs),
         "removed_spawns": sorted(removed_spawns),
     })
@@ -106,8 +109,8 @@ def list_npcs(request):
         return JsonResponse({"error": "Methode non autorisee"}, status=405)
     from quests.models import Quest
 
-    quests = list(Quest.objects.all())
-    return JsonResponse([npc_payload(npc, quests) for npc in Npc.objects.all()], safe=False)
+    links = quest_links_by_npc(Quest.objects.all())
+    return JsonResponse([npc_payload(npc, links) for npc in Npc.objects.all()], safe=False)
 
 
 @csrf_exempt

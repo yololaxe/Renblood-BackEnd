@@ -24,7 +24,7 @@ class SeedMarketsUnitTests(SimpleTestCase):
         self.assertEqual(len(CITIES), 23)
         self.assertEqual(len(CATEGORIES), 14)
         self.assertEqual(len(MARKET_TYPES), 5)
-        self.assertEqual(len(REFERENCE_ITEMS), 8)
+        self.assertEqual(len(REFERENCE_ITEMS), 100)
         self.assertLessEqual(
             float(MARKET_TYPES["SHOP"][1]),
             float(MARKET_TYPES["CITY_MARKET"][1]),

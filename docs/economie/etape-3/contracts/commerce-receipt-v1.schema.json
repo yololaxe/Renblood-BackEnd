@@ -1,0 +1,33 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "title":"Renblood commerce receipt v1",
+  "type":"object",
+  "required":["operation_id","api_version","idempotency_key","owner_id","type","action","business_id","amount","currency","state","revision","legs","rule_version"],
+  "properties":{
+    "operation_id":{"type":"string","format":"uuid"},
+    "api_version":{"const":"1"},
+    "idempotency_key":{"type":"string","minLength":1,"maxLength":160},
+    "owner_id":{"type":"string"},
+    "type":{"const":"COMMERCE"},
+    "action":{"enum":["BUY","SELL","SERVICE","CLAIM","FUND","REFUND","STOCK_IN","STOCK_OUT","STOCK_ADJUST"]},
+    "business_id":{"type":"string"},
+    "amount":{"$ref":"#/$defs/money"},
+    "tax":{"$ref":"#/$defs/money"},
+    "refunded_tax":{"$ref":"#/$defs/money"},
+    "unit_price":{"$ref":"#/$defs/money"},
+    "currency":{"const":"IRON"},
+    "state":{"enum":["RESERVED","CONFIRMED","CANCELLED","RECONCILIATION_REQUIRED"]},
+    "revision":{"type":"integer","minimum":0},
+    "quantity":{"type":"integer","minimum":0},
+    "price_version":{"type":"string"},
+    "rule_version":{"const":"commerce-v1"},
+    "payment":{"enum":["BANK","CASH"]},
+    "legs":{"type":"array","items":{"type":"object","required":["account_id","direction","amount"],"properties":{"account_id":{"type":"string"},"direction":{"enum":["IN","OUT"]},"amount":{"$ref":"#/$defs/money"}}}},
+    "proof_id":{"type":"string"}
+  },
+  "allOf":[
+    {"if":{"properties":{"action":{"enum":["BUY","SELL","SERVICE"]}}},"then":{"required":["unit_price","price_version"]}},
+    {"if":{"properties":{"state":{"enum":["CONFIRMED","CANCELLED","RECONCILIATION_REQUIRED"]}}},"then":{"required":["proof_id"]}}
+  ],
+  "$defs":{"money":{"type":"string","pattern":"^(0|[1-9][0-9]{0,18})$"}}
+}

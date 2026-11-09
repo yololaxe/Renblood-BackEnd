@@ -154,22 +154,31 @@ def quest_payload(quest):
     }
 
 
-def quest_links_for_npc(npc_id, quests=None):
-    from quests.models import Quest
-
-    links = []
-    for quest in quests if quests is not None else Quest.objects.all():
-        roles = []
-        if (quest.startNpcId or quest.npcId or quest.npc) == npc_id:
-            roles.append("START")
-        if quest.completionNpcId == npc_id:
-            roles.append("COMPLETION")
-        if any(objective_npc_id(item) == npc_id for item in (quest.objectives or [])):
-            roles.append("OBJECTIVE")
-        if roles:
-            links.append({
+def quest_links_by_npc(quests):
+    links = {}
+    for quest in quests:
+        roles_by_npc = {}
+        start = quest.startNpcId or quest.npcId or quest.npc
+        if start:
+            roles_by_npc.setdefault(start, []).append("START")
+        if quest.completionNpcId:
+            roles_by_npc.setdefault(quest.completionNpcId, []).append("COMPLETION")
+        for objective in quest.objectives or []:
+            npc_id = objective_npc_id(objective)
+            if npc_id:
+                roles = roles_by_npc.setdefault(npc_id, [])
+                if "OBJECTIVE" not in roles:
+                    roles.append("OBJECTIVE")
+        for npc_id, roles in roles_by_npc.items():
+            links.setdefault(npc_id, []).append({
                 "questId": quest.questId,
                 "name": quest.name,
                 "roles": roles,
             })
     return links
+
+
+def quest_links_for_npc(npc_id, quests=None):
+    from quests.models import Quest
+
+    return quest_links_by_npc(quests if quests is not None else Quest.objects.all()).get(npc_id, [])

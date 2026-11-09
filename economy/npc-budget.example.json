@@ -1,0 +1,6 @@
+{
+  "npc-contracts": {
+    "target_available": "1000",
+    "daily_cap": "1000"
+  }
+}

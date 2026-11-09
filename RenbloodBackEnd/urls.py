@@ -1,3 +1,4 @@
+import os
 from django.conf import settings
 from django.contrib import admin
 from django.http import JsonResponse
@@ -13,10 +14,12 @@ def health(request):
         "status": "ok",
         "environment": settings.DJANGO_ENV,
         "database": settings.MONGO_DB_NAME,
+        "release": os.getenv("RENBLOOD_RELEASE_COMMIT"),
     })
 
 
 urlpatterns = [
+    path("api/economy/v1/", include("economy.urls")),
     path("ping/", home),
     path("api/health/", health),
     path("admin/", admin.site.urls),

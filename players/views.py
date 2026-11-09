@@ -3,15 +3,21 @@ from django.views.decorators.csrf import csrf_exempt
 from django.core.exceptions import ObjectDoesNotExist
 from .models import Player
 import json
+import math
 from django.shortcuts import get_object_or_404
 from .models import Player, Licence
 from jobs.models import Trait, Action
 from players.stats_views import PlayerStatsViewSet
-from utils.decorators import admin_required, minecraft_api_key_or_firebase_admin_required
+from utils.decorators import (
+    admin_required,
+    minecraft_api_key_or_firebase_admin_required,
+    player_or_admin_required,
+)
 
 
 
 
+@player_or_admin_required
 def get_player(request, player_id):
     player = get_object_or_404(Player, id=player_id)
 
@@ -65,7 +71,7 @@ def delete_player(request, player_id):
             player.delete()
             return JsonResponse({"message": "Player deleted"}, status=200)
         except ObjectDoesNotExist:
-            return JsonResponse({"error": "Player not found"}, status=404)
+            return JsonResponse({"error": "Le montant doit etre positif"}, status=400)
 
     return JsonResponse({"error": "Invalid request"}, status=400)
 
@@ -201,6 +207,13 @@ def update_player(request, player_id):
     except json.JSONDecodeError:
         return JsonResponse({"error": "JSON invalide"}, status=400)
 
+    if "id" in data and str(data["id"]) != str(player.id):
+        return JsonResponse({"error":"L’identifiant du personnage est immuable."},status=400)
+    data.pop("id", None)
+
+    if "money" in data:
+        return JsonResponse({"code":"ECONOMY_ROUTE_REQUIRED", "error":"Une correction monetaire exige un recu bancaire et un motif."}, status=409)
+
     # on va collecter les champs racine qu’on modifie
     fields_to_update = set()
 
@@ -239,6 +252,7 @@ def update_player(request, player_id):
 
 
 @csrf_exempt
+@player_or_admin_required
 def get_player_jobs(request, player_id):
     """Renvoie uniquement les jobs du joueur avec son expérience et sa progression."""
     try:
@@ -319,12 +333,18 @@ def update_player_job(request, player_id, job_name, field):
         return JsonResponse({"error": f"Erreur serveur : {str(e)}"}, status=500)
 
 
-def get_players(request, rank):
-    if rank.lower() == "admin":
-        players_data = Player.objects.values()
-    else:
-        players_data = Player.objects.values("pseudo_minecraft", "name", "surname", "rank", "skill", "description", "money", "divin","patreon")
+@admin_required
+def _get_all_players_for_admin(request):
+    return JsonResponse(list(Player.objects.values()), safe=False)
 
+
+def get_players(request, rank):
+    if str(rank or "").strip().lower() == "admin":
+        return _get_all_players_for_admin(request)
+    players_data = Player.objects.values(
+        "pseudo_minecraft", "name", "surname", "rank", "skill", "description",
+        "divin", "discord_id", "discord_avatar",
+    )
     return JsonResponse(list(players_data), safe=False)
 
 
@@ -418,6 +438,7 @@ def manage_player_traits_actions(request, player_id, category, action):
 
 
 
+@player_or_admin_required
 def get_me(request, firebase_uid=None):
     if not firebase_uid:
         return JsonResponse({"error": "Firebase UID manquant"}, status=400)
@@ -578,6 +599,7 @@ def player_full_profile(request, player_id):
     return JsonResponse(response_data, status=200)
 
 
+@minecraft_api_key_or_firebase_admin_required
 def get_player_by_minecraft(request, mc_id):
     """
     GET /players/getByMinecraft/<mc_id>/
@@ -657,10 +679,17 @@ def deposit_player(request, player_id):
         amount = int(data.get("amount", 0))
     except (ValueError, KeyError):
         return JsonResponse({"error": "Montant invalide"}, status=400)
+    if amount <= 0:
+        return JsonResponse({"error": "Le montant doit etre positif"}, status=400)
 
     # on ajoute et on sauve
-    player.money += amount
-    player.save(update_fields=["money"])
+    from economy.store import get_bank
+    from pymongo import ReturnDocument
+    row = get_bank().db.players.find_one_and_update(
+        {"id": str(player.id), "economy_v1": {"$ne": True}}, {"$inc": {"money": amount}}, return_document=ReturnDocument.AFTER)
+    if row is None:
+        return JsonResponse({"code":"ECONOMY_ROUTE_REQUIRED","error":"Utilisez le protocole bancaire v1."},status=409)
+    player.money = row["money"]
 
     return JsonResponse({
         "message": "Dépôt reçu",
@@ -688,6 +717,9 @@ def withdraw_player(request, player_id):
     except (ValueError, KeyError, json.JSONDecodeError):
         return JsonResponse({"error": "Payload invalide"}, status=400)
 
+    if amount <= 0:
+        return JsonResponse({"error": "Le montant doit etre positif"}, status=400)
+
     # 3) Conversion en cuivre selon le type
     PER_IRON   = 1
     PER_BRONZE = 64 * PER_IRON
@@ -705,8 +737,14 @@ def withdraw_player(request, player_id):
         return JsonResponse({"error": "Solde insuffisant"}, status=400)
 
     # 5) Déduire et sauvegarder
-    player.money -= total_copper
-    player.save(update_fields=["money"])
+    from economy.store import get_bank
+    from pymongo import ReturnDocument
+    row = get_bank().db.players.find_one_and_update(
+        {"id": str(player.id), "economy_v1": {"$ne": True}, "money": {"$gte": total_copper}},
+        {"$inc": {"money": -total_copper}}, return_document=ReturnDocument.AFTER)
+    if row is None:
+        return JsonResponse({"code":"ECONOMY_ROUTE_REQUIRED","error":"Compte migré ou solde disponible insuffisant."},status=409)
+    player.money = row["money"]
 
     # 6) Réponse
     return JsonResponse({
@@ -748,6 +786,8 @@ def manage_job_xp(request, mc_id):
     
     if action not in ["add", "set", "remove"]:
         return JsonResponse({"error": "Action invalide (add, set, remove)"}, status=400)
+    if amount < 0:
+        return JsonResponse({"error": "L'experience ne peut pas etre negative"}, status=400)
 
     experiences = player.experiences or {}
     jobs = experiences.get("jobs", {})
@@ -844,7 +884,12 @@ def manage_player_licences(request, mc_id):
         start_date = data.get("start_date")
         end_date = data.get("end_date")
         details = data.get("details", "")
-        price = float(data.get("price", 0.0))
+        try:
+            price = float(data.get("price", 0.0))
+        except (TypeError, ValueError, OverflowError):
+            return JsonResponse({"error": "Prix invalide"}, status=400)
+        if not math.isfinite(price) or price < 0:
+            return JsonResponse({"error": "Le prix doit etre positif ou nul"}, status=400)
 
         if not all([name, owner_name, exploitant_name, start_date, end_date]):
             return JsonResponse({"error": "Champs manquants pour l'ajout de licence"}, status=400)

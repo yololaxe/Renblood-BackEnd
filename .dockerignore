@@ -1,0 +1,15 @@
+.git
+.venv
+venv
+.idea
+__pycache__
+**/__pycache__
+*.pyc
+.env
+.env.*
+**/firebase-adminsdk.json
+**/adminsdk.json
+**/*service-account*.json
+.recovery-tools
+docs
+*.log

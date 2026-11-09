@@ -128,6 +128,12 @@ class CalculatedMarketPriceSerializer(serializers.ModelSerializer):
 
 
 class MarketTransactionSerializer(serializers.ModelSerializer):
+    unitPriceIron = serializers.CharField(source="unit_price",read_only=True)
+    totalPriceIron = serializers.CharField(source="total_price",read_only=True)
+    ownerDeltaIron = serializers.SerializerMethodField()
+    def get_ownerDeltaIron(self,obj):
+        return str(-obj.total_price if obj.action=="SELL" else obj.owner_gain)
+
     class Meta:
         model = MarketTransaction
         fields = "__all__"

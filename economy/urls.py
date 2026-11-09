@@ -1,0 +1,28 @@
+from django.urls import path
+from . import views
+urlpatterns=[
+    path('wallet',views.wallet),
+    path('support/receipts/<uuid:ident>', views.support_receipt),
+    path('admin/desk/<str:section>',views.admin_desk),
+    path('admin/schedules/<str:ident>/cancel',views.admin_schedule),
+    path('commerce/status',views.business_status),
+    path('commerce/funding-targets', views.funding_targets),
+    path('admin/businesses/<str:business_id>/policy',views.admin_policy),
+    path('admin/businesses/<str:business_id>/stock',views.admin_stock),
+    path('commerce/businesses',views.business),
+    path('commerce/offers',views.offer),
+    path('commerce/operations',views.commerce),
+    path('quests/<str:quest_id>/reward',views.reward),
+    path('quests/pending',views.pending_rewards),
+    path('quests/<str:quest_id>/complete',views.complete_quest),
+    path('quests/<str:quest_id>/materials',views.reward_material),
+    path("admin/accounts/<str:owner>/adjustments",views.admin_adjustment),
+    path("admin/operations/<uuid:ident>",views.admin_operation),
+    path("admin/operations/<uuid:ident>/<str:action>",views.admin_operation),
+    path('accounts',views.accounts),
+    path('operations',views.operations),
+    path('operations/<uuid:ident>',views.operation),
+    path('operations/<uuid:ident>/<str:action>',views.operation),
+    path('admin/businesses/<str:business_id>',views.admin_business),
+    path('admin/businesses/<str:business_id>/<str:action>',views.admin_business),
+]

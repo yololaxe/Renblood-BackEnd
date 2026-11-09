@@ -245,6 +245,10 @@ class MarketTransaction(UuidModel):
     unit_price = models.BigIntegerField(validators=[MinValueValidator(1)])
     total_price = models.BigIntegerField(validators=[MinValueValidator(1)])
     owner_gain = models.BigIntegerField(default=0, validators=[MinValueValidator(0)])
+    operation_id = models.CharField(max_length=36, null=True, blank=True)
+    price_version = models.CharField(max_length=160, null=True, blank=True)
+    rule_version = models.CharField(max_length=160, null=True, blank=True)
+    tax = models.BigIntegerField(default=0, validators=[MinValueValidator(0)])
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

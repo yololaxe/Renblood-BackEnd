@@ -25,16 +25,7 @@ MARKET_TYPES = {
     "PLAYER_MARKET": ("Comptoir joueur", "1.00"),
 }
 
-REFERENCE_ITEMS = {
-    "minecraft:bread": ("Pain", "FOOD", 64),
-    "minecraft:iron_ingot": ("Lingot de fer", "IRON", 320),
-    "minecraft:oak_log": ("Bûche de chêne", "WOOD", 32),
-    "minecraft:cobblestone": ("Pierre taillée", "STONE", 8),
-    "minecraft:wheat": ("Blé", "FARMING", 24),
-    "minecraft:stick": ("Bâton", "WOOD", 4),
-    "minecraft:stone_pickaxe": ("Pioche en pierre", "TOOLS", 96),
-    "minecraft:iron_sword": ("Épée en fer", "WEAPONS", 768),
-}
+from markets.reference_catalog import REFERENCE_ITEMS
 
 BASE_MODIFIER_CATEGORIES = [
     "FOOD", "WOOD", "STONE", "IRON", "FARMING",
@@ -139,7 +130,7 @@ def seed_markets():
         }
         if item_id in items:
             summary["items_existing"] += 1
-            _apply(items[item_id], values)
+            # Preserve administrator prices, XP and disabled references.
         else:
             items[item_id] = MarketItemReference.objects.create(item_id=item_id, **values)
             summary["items_created"] += 1

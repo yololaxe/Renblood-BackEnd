@@ -764,6 +764,8 @@ class PublicMarketPricesView(APIView):
             city["prices"].append({
                 "itemId": price.item_id,
                 "buyPrice": price.buy_price,
+                "buyPriceIron": str(price.buy_price),
+                "sellPriceIron": str(price.sell_price) if getattr(price,"sell_price",None) is not None else None,
                 "marketType": price.market_type,
             })
         return Response({

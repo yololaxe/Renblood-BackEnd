@@ -1,0 +1,101 @@
+﻿item_id;nom;categorie;prix_unitaire_fer;xp
+minecraft:bread;Pain;FOOD;64;0
+minecraft:baked_potato;Pomme de terre cuite;FOOD;32;0
+minecraft:cooked_beef;Steak;FOOD;96;0
+minecraft:cooked_porkchop;Côtelette de porc cuite;FOOD;96;0
+minecraft:cooked_chicken;Poulet rôti;FOOD;64;0
+minecraft:cooked_mutton;Mouton cuit;FOOD;64;0
+minecraft:cooked_rabbit;Lapin cuit;FOOD;80;0
+minecraft:cooked_cod;Morue cuite;FOOD;48;0
+minecraft:cooked_salmon;Saumon cuit;FOOD;64;0
+minecraft:apple;Pomme;FOOD;24;0
+minecraft:sweet_berries;Baies sucrées;FOOD;8;0
+minecraft:melon_slice;Tranche de pastèque;FOOD;8;0
+minecraft:pumpkin_pie;Tarte à la citrouille;FOOD;80;0
+minecraft:cookie;Cookie;FOOD;8;0
+minecraft:cake;Gâteau;FOOD;512;0
+minecraft:wheat;Blé;FARMING;24;0
+minecraft:wheat_seeds;Graines de blé;FARMING;4;0
+minecraft:carrot;Carotte;FARMING;16;0
+minecraft:potato;Pomme de terre;FARMING;16;0
+minecraft:beetroot;Betterave;FARMING;16;0
+minecraft:beetroot_seeds;Graines de betterave;FARMING;4;0
+minecraft:pumpkin;Citrouille;FARMING;48;0
+minecraft:melon;Pastèque;FARMING;64;0
+minecraft:sugar_cane;Canne à sucre;FARMING;12;0
+minecraft:sugar;Sucre;FARMING;12;0
+minecraft:paper;Papier;FARMING;12;0
+minecraft:egg;Œuf;FARMING;16;0
+minecraft:milk_bucket;Seau de lait;FARMING;1056;0
+minecraft:leather;Cuir;FARMING;96;0
+minecraft:white_wool;Laine blanche;FARMING;64;0
+minecraft:oak_log;Bûche de chêne;WOOD;32;0
+minecraft:spruce_log;Bûche de sapin;WOOD;32;0
+minecraft:birch_log;Bûche de bouleau;WOOD;32;0
+minecraft:dark_oak_log;Bûche de chêne noir;WOOD;40;0
+minecraft:oak_planks;Planches de chêne;WOOD;8;0
+minecraft:spruce_planks;Planches de sapin;WOOD;8;0
+minecraft:birch_planks;Planches de bouleau;WOOD;8;0
+minecraft:dark_oak_planks;Planches de chêne noir;WOOD;10;0
+minecraft:stick;Bâton;WOOD;4;0
+minecraft:charcoal;Charbon de bois;WOOD;64;0
+minecraft:cobblestone;Pierres;STONE;8;0
+minecraft:stone;Roche;STONE;16;0
+minecraft:stone_bricks;Pierre taillée;STONE;16;0
+minecraft:deepslate;Ardoise des abîmes;STONE;16;0
+minecraft:cobbled_deepslate;Pierres des abîmes;STONE;12;0
+minecraft:granite;Granite;STONE;12;0
+minecraft:diorite;Diorite;STONE;12;0
+minecraft:andesite;Andésite;STONE;12;0
+minecraft:sand;Sable;STONE;12;0
+minecraft:gravel;Gravier;STONE;12;0
+minecraft:clay_ball;Motte d'argile;STONE;12;0
+minecraft:brick;Brique;STONE;20;0
+minecraft:raw_iron;Fer brut;IRON;288;0
+minecraft:iron_ingot;Lingot de fer;IRON;320;0
+minecraft:iron_nugget;Pépite de fer;IRON;36;0
+minecraft:iron_block;Bloc de fer;IRON;2880;0
+minecraft:raw_copper;Cuivre brut;IRON;48;0
+minecraft:copper_ingot;Lingot de cuivre;IRON;64;0
+minecraft:copper_block;Bloc de cuivre;IRON;576;0
+minecraft:coal;Charbon;IRON;64;0
+minecraft:glass;Verre;CONSTRUCTION;20;0
+minecraft:glass_pane;Vitre;CONSTRUCTION;8;0
+minecraft:bricks;Briques;CONSTRUCTION;80;0
+minecraft:terracotta;Terre cuite;CONSTRUCTION;64;0
+minecraft:oak_fence;Barrière en chêne;CONSTRUCTION;16;0
+minecraft:oak_door;Porte en chêne;CONSTRUCTION;16;0
+minecraft:ladder;Échelle;CONSTRUCTION;12;0
+minecraft:torch;Torche;CONSTRUCTION;20;0
+minecraft:chest;Coffre;CONSTRUCTION;64;0
+minecraft:barrel;Tonneau;CONSTRUCTION;64;0
+minecraft:stone_pickaxe;Pioche en pierre;TOOLS;96;0
+minecraft:stone_axe;Hache en pierre;TOOLS;96;0
+minecraft:stone_shovel;Pelle en pierre;TOOLS;48;0
+minecraft:stone_hoe;Houe en pierre;TOOLS;64;0
+minecraft:iron_pickaxe;Pioche en fer;TOOLS;1152;0
+minecraft:iron_axe;Hache en fer;TOOLS;1152;0
+minecraft:iron_shovel;Pelle en fer;TOOLS;384;0
+minecraft:iron_hoe;Houe en fer;TOOLS;768;0
+minecraft:shears;Cisailles;TOOLS;704;0
+minecraft:bucket;Seau;TOOLS;1024;0
+minecraft:iron_sword;Épée en fer;WEAPONS;768;0
+minecraft:bow;Arc;WEAPONS;96;0
+minecraft:crossbow;Arbalète;WEAPONS;512;0
+minecraft:arrow;Flèche;WEAPONS;16;0
+minecraft:shield;Bouclier;WEAPONS;448;0
+minecraft:iron_helmet;Casque en fer;ARMOR;1760;0
+minecraft:iron_chestplate;Plastron en fer;ARMOR;2816;0
+minecraft:iron_leggings;Jambières en fer;ARMOR;2464;0
+minecraft:iron_boots;Bottes en fer;ARMOR;1408;0
+minecraft:gunpowder;Poudre à canon;ALCHEMY;64;0
+minecraft:spider_eye;Œil d'araignée;ALCHEMY;48;0
+minecraft:rotten_flesh;Chair putréfiée;ALCHEMY;8;0
+minecraft:bone;Os;ALCHEMY;24;0
+minecraft:string;Ficelle;ALCHEMY;16;0
+minecraft:gold_ingot;Lingot d'or;LUXURY;640;0
+minecraft:emerald;Émeraude;LUXURY;1024;0
+minecraft:book;Livre;LUXURY;160;0
+minecraft:diamond;Diamant;RARE;4096;0
+minecraft:ender_pearl;Perle de l'Ender;RARE;768;0
+minecraft:blaze_rod;Bâton de Blaze;RARE;1024;0

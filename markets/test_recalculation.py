@@ -15,6 +15,10 @@ from markets.services import _persist_current_prices
 
 
 class RecalculationServiceUnitTests(SimpleTestCase):
+    def setUp(self):
+        policy=patch("markets.services.get_economy_config",return_value=SimpleNamespace(dynamic_economy_enabled=False))
+        policy.start();self.addCleanup(policy.stop)
+
     def test_recalculation_accepts_decimal128_values_from_mongodb(self):
         now = timezone.now()
         city = City(id="city-active", name="Circos", active=True)
