@@ -59,7 +59,7 @@ def check_shape(value, shape, path='package'):
         raise WikiError(f'Type de donnée incorrect : {path}.')
     if isinstance(value, str) and len(value) > 30000:
         raise WikiError(f'Texte trop long : {path}.')
-    if isinstance(value, (int, float)) and not isinstance(value, bool) and (not math.isfinite(value) or abs(value) > 9007199254740991):
+    if isinstance(value, (int, float)) and not isinstance(value, bool) and (abs(value) > 9007199254740991 or not math.isfinite(value)):
         raise WikiError(f'Valeur numérique invalide : {path}.')
     if isinstance(value, dict):
         if shape.get('required', set()) - value.keys():
@@ -86,7 +86,7 @@ def validate(package):
     if not isinstance(data, dict) or any(key not in data for key in seed()['registry']):
         raise WikiError('Le registre public est incomplet.')
     maps = {}
-    for name in ['people', 'families', 'relations', 'guilds', 'roles', 'concepts', 'locations', 'events', 'books']:
+    for name in ['people', 'families', 'relations', 'guilds', 'roles', 'concepts', 'locations', 'events', 'books', 'seats']:
         rows = data[name]
         if not isinstance(rows, list): raise WikiError(f'Liste requise : {name}.')
         ids = [row.get('id') for row in rows]
@@ -123,12 +123,19 @@ def validate(package):
         if not isinstance(person.get('aliases'), list): raise WikiError('Liste d’alias requise.')
     for event in data['events']:
         if event.get('personId') not in maps['people']: raise WikiError('Événement associé à un personnage absent.')
+    for entry in data['government']:
+        if entry.get('personId') and entry['personId'] not in maps['people']: raise WikiError('Membre du gouvernement absent du registre.')
+    for place in data['locations']:
+        if place.get('leaderId') and place['leaderId'] not in maps['people']: raise WikiError('Dirigeant de lieu absent du registre.')
+        if place.get('coords') is not None and (len(place['coords']) != 2 or any(not isinstance(value, (int, float)) or isinstance(value, bool) for value in place['coords'])): raise WikiError('Les coordonnées d’un lieu doivent contenir deux nombres.')
     for guild in data['guilds']:
         if guild.get('leaderId') and guild['leaderId'] not in maps['people']: raise WikiError('Dirigeant de guilde absent.')
     for seat in data['seats']:
         if seat.get('personId') and seat['personId'] not in maps['people']: raise WikiError('Titulaire de siège absent.')
     if not isinstance(package['books'], list) or set(book.get('id') for book in package['books']) != maps['books']:
         raise WikiError('Le sommaire et les textes des livres ne correspondent pas.')
+    full_ids = [book.get('id') for book in package['books']]
+    if len(full_ids) != len(set(full_ids)): raise WikiError('Les textes contiennent un identifiant de livre en double.')
     for book in package['books']:
         index = next(item for item in data['books'] if item['id'] == book['id'])
         chapters = book.get('chapters')
@@ -193,23 +200,54 @@ class WikiStore:
         self.states, self.versions, self.drafts = db.wiki_state, db.wiki_versions, db.wiki_drafts
 
     def initial(self):
+        existing = self.states.find_one({'_id': 'public'})
+        if existing: return existing
         package = seed(); version = package['registry']['version']
         self.versions.update_one({'_id': version}, {'$setOnInsert': {'package': package, 'createdAt': stamp(), 'actor': 'initial', 'reason': 'Version publique de référence'}}, upsert=True)
-        self.states.update_one({'_id': 'public'}, {'$setOnInsert': {'version': version, 'revision': 0, 'history': []}}, upsert=True)
+        self.states.update_one({'_id': 'public'}, {'$setOnInsert': {'version': version, 'revision': 0, 'history': [], 'publication': None}}, upsert=True)
         return self.states.find_one({'_id': 'public'})
 
     def current(self):
         state = self.states.find_one({'_id': 'public'})
-        if not state: return {'version': seed()['registry']['version'], 'revision': 0, 'history': []}, deepcopy(seed())
+        if not state: return {'version': seed()['registry']['version'], 'revision': 0, 'history': [], 'publication': None}, deepcopy(seed())
         version = self.versions.find_one({'_id': state['version']})
         if not version: raise WikiError('La version publiée est temporairement indisponible.', 503)
         return state, version['package']
 
+    @staticmethod
+    def expired(publication):
+        try:
+            return (datetime.now(timezone.utc) - datetime.fromisoformat(publication['startedAt'])).total_seconds() > 120
+        except (KeyError, TypeError, ValueError):
+            return True
+
+    @staticmethod
+    def published_event(state, token):
+        return next((event for event in reversed(state.get('history', [])) if event.get('publicationToken') == token), None) if token else None
+
+    def release_publication(self, state, token):
+        # Revision increments fence an expired worker, including after a restore
+        # back to the exact same content version (the ABA case).
+        result = self.states.update_one({'_id': 'public', 'revision': state['revision'], 'publication.token': token}, {'$set': {'publication': None}, '$inc': {'revision': 1}})
+        return result.modified_count == 1
+
     def overview(self):
-        state = self.initial()
-        versions = list(self.versions.find({}, {'package': 0}).sort('createdAt', -1).limit(30))
+        self.initial()
+        # Reconcile recent abandoned reviews before showing their status.
+        rows = list(self.drafts.find({}, {'package': 0, 'changes': 0}).sort('updatedAt', -1).limit(10))
+        for row in rows:
+            if row['status'] == 'PUBLISHING': self.draft(row['_id'])
+        state = self.states.find_one({'_id': 'public'})
+        pending = state.get('publication')
+        if pending and self.expired(pending):
+            self.release_publication(state, pending['token'])
+            state = self.states.find_one({'_id': 'public'})
+        # Only versions which actually went public can be restored. A losing
+        # concurrent writer may have prepared an immutable, unpublished version.
+        allowed = {state['version'], seed()['registry']['version']} | {event[key] for event in state.get('history', []) for key in ['from', 'to']}
+        versions = list(self.versions.find({'$or': [{'published': True}, {'_id': {'$in': list(allowed)}}]}, {'package': 0}).sort('createdAt', -1).limit(30))
         drafts = list(self.drafts.find({}, {'package': 0, 'changes': 0}).sort('updatedAt', -1).limit(10))
-        return {'current': state['version'], 'revision': state['revision'], 'history': state.get('history', []), 'versions': [{**row, 'id': row['_id'], '_id': None} for row in versions], 'drafts': [{**row, 'id': row['_id'], '_id': None} for row in drafts]}
+        return {'current': state['version'], 'revision': state['revision'], 'history': state.get('history', []), 'publication': state.get('publication'), 'versions': [{**row, 'id': row['_id'], '_id': None} for row in versions], 'drafts': [{**row, 'id': row['_id'], '_id': None} for row in drafts]}
 
     def create_draft(self, package, base, actor, reason):
         package = validate(package); state, current = self.current()
@@ -222,7 +260,8 @@ class WikiStore:
         return draft
 
     def save(self, ident, revision, decisions):
-        draft = self.draft(ident)
+        self.draft(ident)
+        draft = self.drafts.find_one({'_id': ident})
         keys = {change['key'] for change in draft['changes']}
         if not isinstance(decisions, dict) or any(key not in keys or value not in {'accept', 'keep'} for key, value in decisions.items()): raise WikiError('Décisions invalides.')
         result = self.drafts.update_one({'_id': ident, 'revision': revision, 'status': 'DRAFT'}, {'$set': {'decisions': decisions, 'updatedAt': stamp()}, '$inc': {'revision': 1}})
@@ -232,16 +271,25 @@ class WikiStore:
     def draft(self, ident):
         result = self.drafts.find_one({'_id': ident})
         if not result: raise WikiError('Brouillon introuvable.', 404)
-        if result['status'] == 'PUBLISHING':
-            state = self.states.find_one({'_id': 'public'}) or {}
-            if state.get('version') == result.get('publishedVersion'):
-                self.drafts.update_one({'_id': ident, 'revision': result['revision'], 'status': 'PUBLISHING'}, {'$set': {'status': 'PUBLISHED'}})
-            elif (datetime.now(timezone.utc) - datetime.fromisoformat(result['publicationStartedAt'])).total_seconds() > 120:
-                # A crashed worker cannot strand a review forever. Any late writer
-                # still needs the public state's optimistic revision to switch.
-                self.drafts.update_one({'_id': ident, 'revision': result['revision'], 'status': 'PUBLISHING'}, {'$set': {'status': 'DRAFT', 'updatedAt': stamp()}, '$inc': {'revision': 1}})
-            result = self.drafts.find_one({'_id': ident})
-        return result
+        if result['status'] != 'PUBLISHING': return result
+        state = self.states.find_one({'_id': 'public'}) or {}
+        token = result.get('publicationToken')
+        query = {'_id': ident, 'revision': result['revision'], 'status': 'PUBLISHING'}
+        if token: query['publicationToken'] = token
+        event = self.published_event(state, token)
+        if event:
+            self.versions.update_one({'_id': event['to']}, {'$set': {'published': True}})
+            self.drafts.update_one(query, {'$set': {'status': 'PUBLISHED', 'publishedVersion': event['to']}})
+        elif not token and state.get('version') == result.get('publishedVersion'):
+            # Reconcile reviews created by the previous deployed implementation.
+            self.drafts.update_one(query, {'$set': {'status': 'PUBLISHED'}})
+        elif self.expired({'startedAt': result.get('publicationStartedAt')}):
+            pending = state.get('publication')
+            if token and pending and pending.get('token') == token:
+                if not self.release_publication(state, token): return self.drafts.find_one({'_id': ident})
+                # A committed publication and a release cannot both win the CAS.
+            self.drafts.update_one(query, {'$set': {'status': 'DRAFT', 'updatedAt': stamp()}, '$inc': {'revision': 1}})
+        return self.drafts.find_one({'_id': ident})
 
     def preview(self, ident):
         draft = self.draft(ident); state, current = self.current()
@@ -254,32 +302,59 @@ class WikiStore:
         if draft['revision'] != revision or draft['status'] != 'DRAFT': raise WikiError('Le brouillon a changé. Rechargez-le.', 409)
         state, before = self.current()
         if draft['baseVersion'] != state['version']: raise WikiError('Brouillon dépassé : la version publiée a changé.', 409)
+        pending = state.get('publication')
+        if pending:
+            if not self.expired(pending): raise WikiError('Une publication est déjà en cours. Actualisez l’atelier avant de réessayer.', 409)
+            self.release_publication(state, pending['token'])
+            raise WikiError('Une publication interrompue a été libérée. Actualisez l’atelier avant de continuer.', 409)
         package = resolve_changes(before, draft['package'], draft['decisions'])
         if not differences(before, package): raise WikiError('Aucun changement accepté à publier.')
         package['registry']['publishedOn'] = stamp()[:10]
         content = deepcopy(package); content['registry'].pop('version'); content['registry'].pop('publishedOn')
         version = 'wiki-live-' + digest(content)[:16]
         package['registry']['version'] = version
-        claimed = self.drafts.update_one({'_id': ident, 'revision': revision, 'status': 'DRAFT'}, {'$set': {'status': 'PUBLISHING', 'publicationStartedAt': stamp(), 'publishedVersion': version}})
+        token = str(uuid4()); started = stamp()
+        claim = {'_id': ident, 'revision': revision, 'status': 'PUBLISHING', 'publicationToken': token}
+        claimed = self.drafts.update_one({'_id': ident, 'revision': revision, 'status': 'DRAFT'}, {'$set': {'status': 'PUBLISHING', 'publicationStartedAt': started, 'publishedVersion': version, 'publicationToken': token}})
         if claimed.modified_count != 1: raise WikiError('Le brouillon a changé pendant la publication. Rechargez-le.', 409)
+        reserved = None
         try:
-            self.versions.update_one({'_id': version}, {'$setOnInsert': {'package': package, 'createdAt': stamp(), 'actor': actor, 'reason': reason}}, upsert=True)
-            self.switch(state, version, actor, reason, 'publish')
+            publication = {'token': token, 'draftId': ident, 'startedAt': started, 'actor': actor}
+            result = self.states.update_one({'_id': 'public', 'revision': state['revision'], 'version': state['version'], 'publication': None}, {'$set': {'publication': publication}, '$inc': {'revision': 1}})
+            if result.modified_count != 1: raise WikiError('Une publication concurrente a eu lieu. Rechargez avant de continuer.', 409)
+            reserved = {**state, 'revision': state['revision'] + 1, 'publication': publication}
+            self.versions.update_one({'_id': version}, {'$setOnInsert': {'package': package, 'createdAt': started, 'actor': actor, 'reason': reason}}, upsert=True)
+            self.switch(reserved, version, actor, reason, 'publish', token=token, draft_id=ident)
         except Exception:
-            self.drafts.update_one({'_id': ident, 'status': 'PUBLISHING'}, {'$set': {'status': 'DRAFT'}})
+            current = self.states.find_one({'_id': 'public'}) or {}
+            event = self.published_event(current, token)
+            if event:
+                self.versions.update_one({'_id': version}, {'$set': {'published': True}})
+                self.drafts.update_one(claim, {'$set': {'status': 'PUBLISHED', 'publishedVersion': version}})
+                return version
+            if reserved and (current.get('publication') or {}).get('token') == token:
+                self.release_publication(current, token)
+            self.drafts.update_one(claim, {'$set': {'status': 'DRAFT', 'updatedAt': stamp()}, '$inc': {'revision': 1}})
             raise
-        self.drafts.update_one({'_id': ident}, {'$set': {'status': 'PUBLISHED', 'publishedVersion': version}})
+        self.versions.update_one({'_id': version}, {'$set': {'published': True}})
+        self.drafts.update_one(claim, {'$set': {'status': 'PUBLISHED', 'publishedVersion': version}})
         return version
 
-    def switch(self, state, version, actor, reason, action):
+    def switch(self, state, version, actor, reason, action, token=None, draft_id=None):
         event = {'at': stamp(), 'from': state['version'], 'to': version, 'actor': actor, 'reason': reason, 'action': action}
-        result = self.states.update_one({'_id': 'public', 'revision': state['revision'], 'version': state['version']}, {'$set': {'version': version}, '$inc': {'revision': 1}, '$push': {'history': {'$each': [event], '$slice': -50}}})
+        query = {'_id': 'public', 'revision': state['revision'], 'version': state['version']}
+        if token:
+            query['publication.token'] = token
+            event.update({'publicationToken': token, 'draftId': draft_id})
+        result = self.states.update_one(query, {'$set': {'version': version, 'publication': None}, '$inc': {'revision': 1}, '$push': {'history': {'$each': [event], '$slice': -50}}})
         if result.modified_count != 1: raise WikiError('Une publication concurrente a eu lieu. Rechargez avant de continuer.', 409)
 
     def restore(self, version, revision, actor, reason):
         state = self.initial()
         if state['revision'] != revision: raise WikiError('Une autre publication a eu lieu. Rechargez.', 409)
-        if not self.versions.find_one({'_id': version}): raise WikiError('Version introuvable.', 404)
+        target = self.versions.find_one({'_id': version})
+        historical = {seed()['registry']['version']} | {event[key] for event in state.get('history', []) for key in ['from', 'to']}
+        if not target or not (target.get('published') or version in historical): raise WikiError('Version publiée introuvable.', 404)
         if version == state['version']: raise WikiError('Cette version est déjà publiée.')
         self.switch(state, version, actor, reason, 'restore')
         return version
