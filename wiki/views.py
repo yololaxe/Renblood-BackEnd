@@ -38,7 +38,9 @@ def safe(view):
 def public(request):
     state, package = store().current()
     etag = '"' + state['version'] + '"'
-    response = HttpResponseNotModified() if request.headers.get('If-None-Match') == etag else JsonResponse(package)
+    validators = request.headers.get('If-None-Match', '').split(',')
+    unchanged = any(value.strip().removeprefix('W/') in {etag, '*'} for value in validators)
+    response = HttpResponseNotModified() if unchanged else JsonResponse(package)
     response['ETag'] = etag
     response['Cache-Control'] = 'public, max-age=60, must-revalidate'
     return response

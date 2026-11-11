@@ -24,3 +24,5 @@ class WikiEndpointTests(SimpleTestCase):
             self.assertNotIn(b'private', result.content)
             self.assertEqual(result['ETag'], '"wiki-test"')
             self.assertEqual(views.public(self.factory.get('/', HTTP_IF_NONE_MATCH='"wiki-test"')).status_code, 304)
+
+            self.assertEqual(views.public(self.factory.get('/', HTTP_IF_NONE_MATCH='W/"wiki-test"')).status_code, 304)
