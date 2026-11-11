@@ -207,6 +207,16 @@ class WikiStore:
         self.states.update_one({'_id': 'public'}, {'$setOnInsert': {'version': version, 'revision': 0, 'history': [], 'publication': None}}, upsert=True)
         return self.states.find_one({'_id': 'public'})
 
+    def public_version(self):
+        state = self.states.find_one({'_id': 'public'}, {'version': 1})
+        return state['version'] if state else seed()['registry']['version']
+
+    def version_package(self, version):
+        record = self.versions.find_one({'_id': version}, {'package': 1})
+        if record: return record['package']
+        if version == seed()['registry']['version']: return deepcopy(seed())
+        raise WikiError('La version publiée est temporairement indisponible.', 503)
+
     def current(self):
         state = self.states.find_one({'_id': 'public'})
         if not state: return {'version': seed()['registry']['version'], 'revision': 0, 'history': [], 'publication': None}, deepcopy(seed())

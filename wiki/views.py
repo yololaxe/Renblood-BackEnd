@@ -36,11 +36,12 @@ def safe(view):
 @gzip_page
 @safe
 def public(request):
-    state, package = store().current()
-    etag = '"' + state['version'] + '"'
+    backend = store()
+    version = backend.public_version()
+    etag = '"' + version + '"'
     validators = request.headers.get('If-None-Match', '').split(',')
     unchanged = any(value.strip().removeprefix('W/') in {etag, '*'} for value in validators)
-    response = HttpResponseNotModified() if unchanged else JsonResponse(package)
+    response = HttpResponseNotModified() if unchanged else JsonResponse(backend.version_package(version))
     response['ETag'] = etag
     response['Cache-Control'] = 'public, max-age=60, must-revalidate'
     return response

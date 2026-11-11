@@ -19,10 +19,26 @@ class WikiEndpointTests(SimpleTestCase):
             backend.assert_not_called()
     def test_public_endpoint_exposes_only_package_and_supports_etag(self):
         with patch('wiki.views.store') as backend:
-            backend.return_value.current.return_value = ({'version': 'wiki-test', 'history': ['private']}, {'registry': {'version': 'wiki-test'}, 'books': []})
+            backend.return_value.public_version.return_value = 'wiki-test'
+            backend.return_value.version_package.return_value = {'registry': {'version': 'wiki-test'}, 'books': []}
             result = views.public(self.factory.get('/'))
             self.assertNotIn(b'private', result.content)
             self.assertEqual(result['ETag'], '"wiki-test"')
             self.assertEqual(views.public(self.factory.get('/', HTTP_IF_NONE_MATCH='"wiki-test"')).status_code, 304)
 
             self.assertEqual(views.public(self.factory.get('/', HTTP_IF_NONE_MATCH='W/"wiki-test"')).status_code, 304)
+
+    def test_conditional_public_request_reads_no_full_package(self):
+        with patch('wiki.views.store') as backend:
+            backend.return_value.public_version.return_value = 'wiki-test'
+            result = views.public(self.factory.get('/', HTTP_IF_NONE_MATCH='W/"wiki-test"'))
+            self.assertEqual(result.status_code, 304)
+            backend.return_value.version_package.assert_not_called()
+
+    def test_public_body_is_read_from_the_exact_version_used_for_its_etag(self):
+        with patch('wiki.views.store') as backend:
+            backend.return_value.public_version.return_value = 'snapshot-before-concurrent-publish'
+            backend.return_value.version_package.return_value = {'registry': {'version': 'snapshot-before-concurrent-publish'}, 'books': []}
+            result = views.public(self.factory.get('/'))
+            backend.return_value.version_package.assert_called_once_with('snapshot-before-concurrent-publish')
+            self.assertEqual(result['ETag'], '"snapshot-before-concurrent-publish"')
