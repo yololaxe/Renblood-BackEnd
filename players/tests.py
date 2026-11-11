@@ -1,5 +1,5 @@
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from django.test import RequestFactory, SimpleTestCase, override_settings
 
@@ -16,6 +16,7 @@ class MinecraftMoneyEndpointTests(SimpleTestCase):
     def setUp(self):
         self.factory = RequestFactory()
         self.player = FakePlayer(
+            id="legacy-player",
             id_minecraft="2bf2e638-e140-4370-9dfb-db733fc9cf75",
             money=100,
         )
@@ -28,12 +29,16 @@ class MinecraftMoneyEndpointTests(SimpleTestCase):
             HTTP_X_API_KEY="secret",
         )
 
-        with patch("players.views.Player.objects.get", return_value=self.player):
+        bank = Mock()
+        bank.db.players.find_one_and_update.return_value = {"money": 36}
+        with patch("players.views.Player.objects.get", return_value=self.player), patch("economy.store.get_bank", return_value=bank):
             response = withdraw_player(request, self.player.id_minecraft)
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(self.player.money, 36)
-        self.assertEqual(self.player.saved_update_fields, ["money"])
+        query, update = bank.db.players.find_one_and_update.call_args.args
+        self.assertEqual(query, {"id": "legacy-player", "economy_v1": {"$ne": True}, "money": {"$gte": 64}})
+        self.assertEqual(update, {"$inc": {"money": -64}})
 
     def test_deposit_accepts_minecraft_api_key_without_firebase_token(self):
         request = self.factory.post(
@@ -43,9 +48,13 @@ class MinecraftMoneyEndpointTests(SimpleTestCase):
             HTTP_X_API_KEY="secret",
         )
 
-        with patch("players.views.Player.objects.get", return_value=self.player):
+        bank = Mock()
+        bank.db.players.find_one_and_update.return_value = {"money": 125}
+        with patch("players.views.Player.objects.get", return_value=self.player), patch("economy.store.get_bank", return_value=bank):
             response = deposit_player(request, self.player.id_minecraft)
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(self.player.money, 125)
-        self.assertEqual(self.player.saved_update_fields, ["money"])
+        query, update = bank.db.players.find_one_and_update.call_args.args
+        self.assertEqual(query, {"id": "legacy-player", "economy_v1": {"$ne": True}})
+        self.assertEqual(update, {"$inc": {"money": 25}})
