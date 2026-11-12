@@ -71,6 +71,37 @@ class NpcShopTests(unittest.TestCase):
         city=str(uuid.uuid4());self.bank.db.market_cities.insert_one({'id':city,'name':city,'active':True})
         body=self.config();body['city_id']=city;cat=self.service.save(body,'web:admin')
         self.assertFalse(cat['offers'][0]['available']);self.assertEqual(cat['offers'][0]['buy_price'],'0')
+        self.assertFalse(cat['offers'][0]['automatic']);self.assertEqual(cat['offers'][0]['price_reason'],'NO_CITY_QUOTE')
+        self.assertEqual(cat['offers'][0]['trend'],'UNPRICED')
+        with self.assertRaises(EconomyError):self.buy(cat)
+    def test_unknown_reference_is_a_manual_draft_and_can_be_priced(self):
+        self.bank.db.market_item_references.delete_one({'item_id':self.item})
+        cat=self.save(buy_price='0',sell_price='0');row=cat['offers'][0]
+        self.assertFalse(row['automatic']);self.assertTrue(row['price_required'])
+        self.assertFalse(row['available']);self.assertEqual(row['price_reason'],'NO_REFERENCE')
+        self.assertFalse(self.bank.db.npc_shops.find_one({'_id':self.id})['offers'][0]['automatic'])
+        with self.assertRaises(EconomyError):self.buy(cat)
+        row.update(buy_price='12');cat=self.service.save(cat,'web:admin')
+        self.assertTrue(cat['offers'][0]['buy_available']);self.assertFalse(cat['offers'][0]['price_required'])
+        self.assertEqual(self.finish(self.buy(cat))['state'],'CONFIRMED')
+    def test_unpriced_side_cannot_be_used_but_priced_side_works(self):
+        cat=self.save(automatic=False,buy_price='12',sell_enabled=True,sell_price='0')
+        self.assertTrue(cat['offers'][0]['buy_available']);self.assertFalse(cat['offers'][0]['sell_available'])
+        self.assertEqual(self.finish(self.buy(cat))['state'],'CONFIRMED')
+        with self.assertRaises(EconomyError) as caught:self.buy(cat,action='SELL')
+        self.assertEqual(caught.exception.code,'PRICE_REQUIRED')
+    def test_lost_city_quote_does_not_sell_at_old_or_free_price(self):
+        cat=self.save();self.bank.db.market_item_references.delete_one({'item_id':self.item})
+        now=self.service.catalogue(self.id)
+        self.assertFalse(now['offers'][0]['automatic']);self.assertFalse(now['offers'][0]['available'])
+        with self.assertRaises(EconomyError):self.buy(cat)
+        self.assertEqual(self.bank.db.market_transactions.count_documents({'counter_id':self.id}),0)
+    def test_manual_draft_is_not_silently_switched_to_automatic_by_recalculation(self):
+        self.bank.db.market_item_references.delete_one({'item_id':self.item})
+        cat=self.save(buy_price='0',sell_price='0')
+        self.bank.db.market_item_references.insert_one({'item_id':self.item,'reference_price':42,'enabled':True})
+        row=self.service.catalogue(self.id)['offers'][0]
+        self.assertFalse(row['automatic']);self.assertTrue(row['auto_available']);self.assertEqual(row['buy_price'],'0')
     def test_local_price_is_used_and_old_price_refused(self):
         city=str(uuid.uuid4());self.bank.db.market_cities.insert_one({'id':city,'name':city,'active':True})
         self.bank.db.calculated_market_prices.insert_one({'city_id':city,'market_type':'CITY_MARKET','item_id':self.item,'calculated_price':15,'calculation_version':'v1'})

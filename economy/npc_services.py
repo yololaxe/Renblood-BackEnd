@@ -76,6 +76,7 @@ class NpcShops:
         entries = body.get('offers', [])
         if not isinstance(entries, list) or len(entries) > 54:
             raise EconomyError('INVALID_REQUEST', 'Une boutique accepte au maximum 54 articles.', 400)
+        prices = {r['item_id']: r for r in self.metadata(city)['references']}
         offers = []; seen = set()
         for entry in entries:
             item = text(entry.get('item_id'), 160, 'Objet')
@@ -89,10 +90,13 @@ class NpcShops:
             if type(auto) is not bool: raise EconomyError('INVALID_REQUEST', 'Mode de prix invalide.', 400)
             buy = money(entry.get('buy_price', '0'), zero=True)
             sell = money(entry.get('sell_price', '0'), zero=True)
+            if auto and not (prices.get(item) or {}).get('price'):
+                # A missing quote is a manual draft, never an executable zero price.
+                auto, buy, sell = False, 0, 0
             enabled_buy, enabled_sell = entry.get('buy_enabled', True), entry.get('sell_enabled', False)
             if type(enabled_buy) is not bool or type(enabled_sell) is not bool: raise EconomyError('INVALID_REQUEST', 'Modes de vente invalides.', 400)
-            if not auto and ((enabled_buy and not buy) or (enabled_sell and not sell) or (enabled_buy and enabled_sell and sell > buy)):
-                raise EconomyError('INVALID_REQUEST', 'Prix manuels absents ou rachat supérieur à la vente.', 400)
+            if not auto and enabled_buy and enabled_sell and buy and sell > buy:
+                raise EconomyError('INVALID_REQUEST', 'Le prix de rachat dépasse le prix de vente.', 400)
             stock = entry.get('stock')
             if stock is not None: integer(stock, 0, 1000000, 'Stock')
             if entry.get('restock_seconds', 0) not in {0} and entry.get('restock_seconds', 0) < 60:
@@ -142,6 +146,7 @@ class NpcShops:
         stored_offers={r['offer_id']:r for r in self.db.economy_offers.find({'business_id':business}).limit(54)}
         for item in shop['offers']:
             current = prices.get(item['item_id']); buy, sell = int(item['buy_price']), int(item['sell_price'])
+            automatic = item['automatic'] and bool(current and current['price'])
             available = True
             if item['automatic']:
                 available = bool(current and current['price'])
@@ -149,6 +154,11 @@ class NpcShops:
                 sell = max(1, buy * 80 // 100) if available else 0
             if not item['buy_enabled']: buy = 0
             if not item['sell_enabled']: sell = 0
+            buy_available = item['buy_enabled'] and buy > 0
+            sell_available = item['sell_enabled'] and sell > 0
+            available = available and (buy_available or sell_available)
+            price_required = (item['buy_enabled'] and not buy) or (item['sell_enabled'] and not sell)
+            price_reason = ('NO_REFERENCE' if not current else 'NO_CITY_QUOTE') if not (current or {}).get('price') else 'MANUAL_PRICE_REQUIRED'
             version = fingerprint({'revision': shop['revision'], 'buy': buy, 'sell': sell, 'id': item['id']})[:32]
             # Admin may inspect suspended shops without registering an executable quote.
             stock_id = fingerprint({'business': business, 'offer': item['id']})
@@ -167,12 +177,16 @@ class NpcShops:
                 self.bank.transact(restock)
                 stored = self.db.economy_offers.find_one({'_id': stock_id}) or stored
             reference = int(current['reference']) if current else buy
-            result['offers'].append({**item, 'buy_price': str(buy), 'sell_price': str(sell), 'price_version': version,
+            result['offers'].append({**item, 'automatic': automatic, 'buy_price': str(buy), 'sell_price': str(sell), 'price_version': version,
+                                     'auto_available': bool(current and current['price']), 'price_required': bool(price_required),
+                                     'price_reason': price_reason if price_required else None,
+                                     'buy_available': bool(buy_available), 'sell_available': bool(sell_available),
                                      'available': available, 'stock': stored.get('stock', item['stock']),
                                      'stock_seen': stored.get('stock', item['stock']),
-                                     'trend': 'UP' if buy > reference else 'DOWN' if buy < reference else 'STABLE'})
+                                     'trend': ('UP' if buy > reference else 'DOWN' if buy < reference else 'STABLE') if buy else 'UNPRICED'})
         result['city_name'] = next((c['name'] for c in metadata['cities'] if c['id'] == shop.get('city_id')), 'Cours commun')
         result['cities'] = metadata['cities']
+        result['references'] = metadata['references']
         return result
 
     def prepare(self, ident, owner, actor, body):
@@ -181,6 +195,8 @@ class NpcShops:
         if not offer or not offer['available']: raise EconomyError('OFFER_UNAVAILABLE', 'Article indisponible.')
         if body.get('action') not in {'BUY', 'SELL'}: raise EconomyError('INVALID_REQUEST', 'Action invalide.', 400)
         price = offer['buy_price'] if body['action'] == 'BUY' else offer['sell_price']
+        if int(price) <= 0:
+            raise EconomyError('PRICE_REQUIRED', 'Prix à définir par un administrateur avant cet échange.')
         return self.commerce.prepare(owner, actor, body.get('idempotency_key'), {
             'business_id': 'npcshop:' + ident, 'offer_id': offer['id'], 'price_version': body.get('price_version'),
             'action': body['action'], 'unit_price': body.get('unit_price'), 'quantity': body.get('quantity'), 'payment': 'CASH',
