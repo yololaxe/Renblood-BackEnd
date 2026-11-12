@@ -173,3 +173,30 @@ class NpcShopTests(unittest.TestCase):
         body=self.config();body['city_id']=city
         try:self.assertFalse(self.service.save(body,'web:admin')['offers'][0]['available'])
         finally:self.bank.db.price_calculation_runs.delete_many({})
+
+    def test_price_publisher_rejects_a_second_simultaneous_calculation(self):
+        from types import SimpleNamespace
+        from unittest.mock import patch
+        from markets.price_lock import price_calculation_lease
+        from rest_framework.exceptions import ValidationError
+        fake=SimpleNamespace(connection=self.bank.db,ensure_connection=lambda:None)
+        with patch('markets.price_lock.connection',fake):
+            with price_calculation_lease():
+                def attempt():
+                    try:
+                        with price_calculation_lease():return False
+                    except ValidationError:return True
+                with ThreadPoolExecutor(max_workers=1) as pool:self.assertTrue(pool.submit(attempt).result())
+        self.assertIsNone(self.bank.db.economy_services.find_one({'_id':'market-price-publisher'}))
+
+    def test_expired_price_publisher_cannot_publish_after_losing_its_lease(self):
+        from types import SimpleNamespace
+        from unittest.mock import patch
+        from markets.price_lock import price_calculation_lease,verify_price_calculation_lease
+        from rest_framework.exceptions import ValidationError
+        fake=SimpleNamespace(connection=self.bank.db,ensure_connection=lambda:None)
+        with patch('markets.price_lock.connection',fake):
+            with price_calculation_lease():
+                verify_price_calculation_lease()
+                self.bank.db.economy_services.update_one({'_id':'market-price-publisher'},{'$set':{'expires_at':datetime.now(timezone.utc)-timedelta(seconds=1)}})
+                with self.assertRaises(ValidationError):verify_price_calculation_lease()

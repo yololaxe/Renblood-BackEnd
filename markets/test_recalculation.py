@@ -16,6 +16,9 @@ from markets.services import _persist_current_prices
 
 class RecalculationServiceUnitTests(SimpleTestCase):
     def setUp(self):
+        from contextlib import nullcontext
+        lease=patch("markets.services.price_calculation_lease",side_effect=nullcontext)
+        lease.start();self.addCleanup(lease.stop)
         policy=patch("markets.services.get_economy_config",return_value=SimpleNamespace(dynamic_economy_enabled=False))
         policy.start();self.addCleanup(policy.stop)
 

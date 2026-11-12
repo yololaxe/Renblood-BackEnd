@@ -22,6 +22,8 @@ from .models import (
 )
 
 
+from .price_lock import price_calculation_lease, verify_price_calculation_lease
+
 ONE = Decimal("1")
 logger = logging.getLogger(__name__)
 
@@ -323,6 +325,11 @@ def recompute_activity_modifiers(triggered_by="system", calculation_version=None
 
 
 def recalculate_prices(triggered_by, trigger_source):
+    with price_calculation_lease():
+        return _recalculate_prices(triggered_by, trigger_source)
+
+
+def _recalculate_prices(triggered_by, trigger_source):
     started_clock = time.monotonic()
     now = timezone.now()
     runs = _unordered(PriceCalculationRun)
@@ -394,6 +401,7 @@ def recalculate_prices(triggered_by, trigger_source):
                         "calculated_at": calculated_at,
                     })
 
+        verify_price_calculation_lease()
         _persist_current_prices(price_rows, version)
         count = len(price_rows)
 
