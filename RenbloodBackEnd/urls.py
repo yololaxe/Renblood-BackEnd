@@ -19,6 +19,7 @@ def health(request):
 
 
 urlpatterns = [
+    path("api/lands/v1/", include("lands.views")),
     path("api/wiki/", include("wiki.views")),
     path("api/economy/v1/", include("economy.urls")),
     path("ping/", home),
