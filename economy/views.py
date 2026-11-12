@@ -24,7 +24,7 @@ def endpoint(view):
             request.economy_server=_has_server_api_key(request)
             request.economy_body={}
             if request.method=='POST':
-                if len(request.body)>16384: raise EconomyError('INVALID_REQUEST','Requête trop volumineuse.',400)
+                if len(request.body)>(131072 if '/npc/shops' in request.path else 16384): raise EconomyError('INVALID_REQUEST','Requête trop volumineuse.',400)
                 try: request.economy_body=json.loads(request.body)
                 except (ValueError,UnicodeError): raise EconomyError('INVALID_REQUEST','JSON invalide.',400)
                 if not isinstance(request.economy_body,dict): raise EconomyError('INVALID_REQUEST','Objet JSON requis.',400)

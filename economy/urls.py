@@ -1,6 +1,11 @@
 from django.urls import path
-from . import views
+from . import views, npc_views
 urlpatterns=[
+    path('npc/catalogue', npc_views.catalogue),
+    path('npc/contracts/terms', npc_views.contract_terms),
+    path('npc/shops', npc_views.shops),
+    path('npc/shops/<uuid:ident>', npc_views.shops),
+    path('npc/shops/<uuid:ident>/purchase', npc_views.purchase),
     path('wallet',views.wallet),
     path('support/receipts/<uuid:ident>', views.support_receipt),
     path('admin/desk/<str:section>',views.admin_desk),

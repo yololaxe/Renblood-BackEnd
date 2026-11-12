@@ -217,18 +217,23 @@ class Commerce:
                 mode='sell_mode_enabled' if action=='SELL' else 'buy_mode_enabled'
                 if counter and (not counter.get('active') or not counter.get(mode,True)):
                     raise EconomyError('BUSINESS_UNAVAILABLE','Le comptoir a été fermé ou cet échange est désactivé.')
+            if business_id.startswith('npcshop:') and action in {'BUY', 'SELL'}:
+                shop = self.db.npc_shops.find_one({'_id': business_id[8:], 'active': True}, session=s)
+                entry = next((e for e in (shop or {}).get('offers', []) if e['id'] == body.get('offer_id')), None)
+                if not entry or not entry['buy_enabled' if action == 'BUY' else 'sell_enabled']:
+                    raise EconomyError('OFFER_UNAVAILABLE', 'Cet article a été fermé ou retiré.')
             offer = None; tax = 0
             budget_policy = business if action == 'SELL' and business.get('budget_unlimited') else None
             original=None
             if action=='REFUND':
                 original_reference={'_id':body.get('original_operation_id')} if body.get('original_operation_id') else {'actor_id':actor,'key':body.get('original_key')}
                 original=self.bank.operations.find_one({**original_reference,'type':'COMMERCE',
-                    'state':'CONFIRMED','action':'SERVICE','business_id':business_id,'owner_id':owner,'payment':'BANK'},session=s)
+                    'state':'CONFIRMED','action':'SERVICE','business_id':business_id,'owner_id':owner,'payment':payment},session=s)
                 if not original: raise EconomyError('REFUND_NOT_ALLOWED','Service bancaire confirmé requis.')
                 if self.bank.operations.find_one({'original_operation_id':original['_id']},session=s):
                     raise EconomyError('ALREADY_REFUNDED','Ce service a déjà été remboursé.')
-                if payment!='BANK': raise EconomyError('INVALID_REQUEST','Remboursement bancaire requis.',400)
-                amount=original['amount'];source=box;dest='bank:'+owner
+                if payment not in {'BANK', 'CASH'}: raise EconomyError('INVALID_REQUEST','Mode de remboursement invalide.',400)
+                amount=original['amount'];source=box;dest='bank:'+owner if payment=='BANK' else None
             elif action in {'CLAIM', 'FUND'}:
                 if business['owner_id'] != owner and not (administrator and action=='FUND'):
                     raise EconomyError('OWNER_REQUIRED', 'Seul le propriétaire peut déplacer cette caisse.', 403)
@@ -385,6 +390,12 @@ class Commerce:
                         delta['incoming_stock'] = -qty
                         if action == 'delivery': delta['stock'] = qty
                     if delta: self.db.economy_offers.update_one({'_id': op['stock_id']}, {'$inc': delta}, session=s)
+                if action=='delivery' and op['business_id']=='npc-contracts' and op['action']=='SELL':
+                    from .npc_services import record_contract_delivery
+                    record_contract_delivery(self.db, op, s)
+                if action=='delivery' and op['business_id'].startswith('npcshop:') and op['action'] in {'BUY','SELL'}:
+                    from .npc_services import NpcShops
+                    NpcShops(self.bank).record_delivery(op, s)
                 if action=='delivery' and op['business_id'].startswith('market:') and op['action'] in {'BUY','SELL'}:
                     counter=self.db.merchant_counters.find_one({'counter_id':op['business_id'][7:]},session=s)
                     if counter:
