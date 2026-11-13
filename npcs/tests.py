@@ -136,7 +136,8 @@ class NpcChangeEndpointTests(SimpleTestCase):
         npcs_filter.return_value = []
         spawns_filter.return_value.select_related.return_value = []
 
-        response = npc_changes(self.factory.get("/npcs/changes/?since=4"))
+        with patch("characters.views.flush_identity_changes"), patch("characters.views.public_bindings",return_value={}):
+            response = npc_changes(self.factory.get("/npcs/changes/?since=4"))
 
         self.assertEqual(response.status_code, 200)
         payload = json.loads(response.content)

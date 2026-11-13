@@ -21,7 +21,9 @@ JSON_DEFAULTS = {
 }
 
 
-def npc_payload(npc, links=None):
+def npc_payload(npc, links=None, identities=None):
+    from characters.views import public_bindings
+    identity=(identities if identities is not None else public_bindings([npc.npc_id])).get(npc.npc_id,{})
     quest_links = quest_links_for_npc(npc.npc_id) if links is None else links.get(npc.npc_id, [])
     return {
         "npc_id": npc.npc_id,
@@ -30,7 +32,9 @@ def npc_payload(npc, links=None):
         "skin": npc.skin,
         "dialogue": npc.dialogue,
         "tags": npc.tags,
-        "enabled": npc.enabled,
+        "configured_enabled": npc.enabled,
+        "enabled": npc.enabled and not identity.get("archived",False) and not identity.get("automatic_spawn_blocked",False),
+        **identity,
         "description": npc.description,
         "profile_image": npc.profile_image,
         "met_by": npc.met_by,
@@ -47,8 +51,10 @@ def npc_payload(npc, links=None):
     }
 
 
-def spawn_payload(spawn, links=None):
+def spawn_payload(spawn, links=None, identities=None):
+    from characters.views import public_bindings
     npc = spawn.npc
+    identity=(identities if identities is not None else public_bindings([npc.npc_id])).get(npc.npc_id,{})
     return {
         "spawn_id": spawn.spawn_id,
         "npc_id": npc.npc_id,
@@ -62,7 +68,8 @@ def spawn_payload(spawn, links=None):
         "yaw": spawn.yaw,
         "pitch": spawn.pitch,
         "spawn_rule": spawn.spawn_rule,
-        "active": spawn.active,
+        "active": spawn.active and npc.enabled and not identity.get("archived",False) and not identity.get("automatic_spawn_blocked",False),
+        **identity,
         "meta": spawn.meta,
         "dialogue": npc.dialogue,
         "quest_links": quest_links_for_npc(npc.npc_id) if links is None else links.get(npc.npc_id, []),
@@ -79,6 +86,8 @@ def npc_changes(request):
     except (TypeError, ValueError):
         return JsonResponse({"error": "since doit etre un entier"}, status=400)
 
+    from characters.views import flush_identity_changes, public_bindings
+    flush_identity_changes()
     changes = list(NpcChange.objects.filter(revision__gt=since).order_by("revision"))
     latest = changes[-1].revision if changes else since
     npc_ids = {change.entity_id for change in changes if change.entity_type == "NPC" and change.action == "UPSERT"}
@@ -89,15 +98,16 @@ def npc_changes(request):
     if npc_ids:
         spawn_ids.update(NpcSpawn.objects.filter(npc_id__in=npc_ids).values_list("spawn_id", flat=True))
 
-    npcs = Npc.objects.filter(npc_id__in=npc_ids)
-    spawns = NpcSpawn.objects.filter(spawn_id__in=spawn_ids).select_related("npc")
+    npcs = list(Npc.objects.filter(npc_id__in=npc_ids))
+    spawns = list(NpcSpawn.objects.filter(spawn_id__in=spawn_ids).select_related("npc"))
+    identities=public_bindings({n.npc_id for n in npcs}|{s.npc_id for s in spawns})
     from quests.models import Quest
 
     links = quest_links_by_npc(Quest.objects.all()) if npc_ids or spawn_ids else {}
     return JsonResponse({
         "revision": latest,
-        "npcs": [npc_payload(npc, links) for npc in npcs],
-        "spawns": [spawn_payload(spawn, links) for spawn in spawns],
+        "npcs": [npc_payload(npc, links, identities) for npc in npcs],
+        "spawns": [spawn_payload(spawn, links, identities) for spawn in spawns],
         "removed_npcs": sorted(removed_npcs),
         "removed_spawns": sorted(removed_spawns),
     })
@@ -110,7 +120,9 @@ def list_npcs(request):
     from quests.models import Quest
 
     links = quest_links_by_npc(Quest.objects.all())
-    return JsonResponse([npc_payload(npc, links) for npc in Npc.objects.all()], safe=False)
+    from characters.views import public_bindings
+    npcs=list(Npc.objects.all());identities=public_bindings([n.npc_id for n in npcs])
+    return JsonResponse([npc_payload(npc, links, identities) for npc in npcs], safe=False)
 
 
 @csrf_exempt
@@ -163,6 +175,9 @@ def npc_detail(request, npc_id):
     @minecraft_api_key_or_firebase_admin_required
     def protected_view(protected_request):
         if protected_request.method == "DELETE":
+            from characters.views import public_bindings
+            if quest_links_for_npc(npc_id) or public_bindings([npc_id]).get(npc_id):
+                return JsonResponse({"error":"Ce profil est lié à des quêtes ou à une fiche personnage. Archive-le dans le Répertoire pour préserver ses références.","directory":"/admin/characters"},status=409)
             for spawn_id in NpcSpawn.objects.filter(npc=npc).values_list("spawn_id", flat=True):
                 record_change("SPAWN", spawn_id, "DELETE")
             record_change("NPC", npc.npc_id, "DELETE")

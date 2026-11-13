@@ -207,23 +207,14 @@ def list_spawns(request):
     if request.method != "GET":
         return JsonResponse({"error": "Méthode non autorisée"}, status=405)
 
-    spawns = NpcSpawn.objects.all()
-    data = []
-    for spawn in spawns:
-        data.append({
-            "spawn_id": spawn.spawn_id,
-            "npc_id": spawn.npc.npc_id,
-            "world": spawn.world,
-            "x": spawn.x,
-            "y": spawn.y,
-            "z": spawn.z,
-            "yaw": spawn.yaw,
-            "pitch": spawn.pitch,
-            "spawn_rule": spawn.spawn_rule,
-            "active": spawn.active,
-            "meta": spawn.meta
-        })
-    return JsonResponse(data, safe=False)
+    from .api_views import spawn_payload
+    from characters.views import public_bindings
+    spawns=list(NpcSpawn.objects.all().select_related('npc'))
+    identities=public_bindings({s.npc_id for s in spawns})
+    from quests.contracts import quest_links_by_npc
+    from quests.models import Quest
+    links=quest_links_by_npc(Quest.objects.all()) if spawns else {}
+    return JsonResponse([spawn_payload(s,links,identities) for s in spawns],safe=False)
 
 @csrf_exempt
 @minecraft_api_key_or_firebase_admin_required
@@ -290,25 +281,12 @@ def get_spawns_by_world(request, world_name):
     if request.method != "GET":
         return JsonResponse({"error": "Méthode non autorisée"}, status=405)
 
-    spawns = NpcSpawn.objects.filter(world=world_name, active=True)
-    data = []
-    for spawn in spawns:
-        data.append({
-            "spawn_id": spawn.spawn_id,
-            "npc_id": spawn.npc.npc_id,
-            "npc_name": spawn.npc.name,
-            "npc_type": spawn.npc.type,
-            "npc_skin": spawn.npc.skin,
-            "x": spawn.x,
-            "y": spawn.y,
-            "z": spawn.z,
-            "yaw": spawn.yaw,
-            "pitch": spawn.pitch,
-            "spawn_rule": spawn.spawn_rule,
-            "meta": spawn.meta,
-            # On peut inclure des données du NPC ici pour éviter une 2ème requête
-            "dialogue": spawn.npc.dialogue,
-            "quest_links": quest_links_for_npc(spawn.npc.npc_id),
-            "implementation": normalize_implementation(spawn.npc.implementation),
-        })
-    return JsonResponse(data, safe=False)
+    from .api_views import spawn_payload
+    from characters.views import public_bindings
+    spawns=list(NpcSpawn.objects.filter(world=world_name,active=True).select_related('npc'))
+    identities=public_bindings({s.npc_id for s in spawns})
+    from quests.contracts import quest_links_by_npc
+    from quests.models import Quest
+    links=quest_links_by_npc(Quest.objects.all()) if spawns else {}
+    data=[spawn_payload(s,links,identities) for s in spawns]
+    return JsonResponse([row for row in data if row['active']],safe=False)
