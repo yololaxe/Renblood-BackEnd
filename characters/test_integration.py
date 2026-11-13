@@ -38,6 +38,26 @@ class DirectoryTests(unittest.TestCase):
   self.assertFalse(self.s.public_links(['b'])['b']['automatic_spawn_blocked'])
   self.assertEqual(db.character_identity_outbox.count_documents({'_id':body['operation_id']+':b'}),1)
   self.s.bind(self.body('b',expected_revision=1,control_mode='PLAYER',player_id='p1'),'staff')
+ def test_change_revisions_are_unique_and_ordered_under_concurrency(self):
+  from npcs.native_changes import ChangeLog
+  journal=ChangeLog(db);journal.initialize()
+  with ThreadPoolExecutor(max_workers=4) as pool:
+   result=list(pool.map(lambda i:journal.append('NPC','fixture-'+str(i),'UPSERT'),range(16)))
+  self.assertEqual(sorted(r['revision'] for r in result),list(range(1,17)))
+  self.assertEqual(db.npc_changes.count_documents({}),16)
+ def test_change_counter_rolls_back_with_failed_event(self):
+  from npcs.native_changes import ChangeLog
+  journal=ChangeLog(db);journal.initialize()
+  with patch('pymongo.collection.Collection.insert_one',side_effect=RuntimeError('Interrupted insert')):
+   with self.assertRaises(RuntimeError):journal.append('NPC','failed','UPSERT')
+  self.assertEqual(db.npc_changes.count_documents({}),0)
+  self.assertEqual(journal.append('NPC','ok','UPSERT')['revision'],1)
+ def test_legacy_change_revision_repair_is_idempotent(self):
+  from npcs.native_changes import ChangeLog
+  db.npc_changes.insert_many([{'entity_type':'NPC','entity_id':'old-a','action':'UPSERT'},{'entity_type':'NPC','entity_id':'old-b','action':'DELETE','revision':None}])
+  journal=ChangeLog(db);self.assertEqual(journal.repair_missing_revisions(),2);self.assertEqual(journal.repair_missing_revisions(),0)
+  self.assertEqual(journal.append('NPC','new','UPSERT')['revision'],3)
+  self.assertEqual(db.npc_changes.find_one({'entity_id':'old-b'})['action'],'DELETE')
  def test_archiving_keeps_player_ownership_until_explicit_unlink(self):
   self.s.bind(self.body(control_mode='PLAYER',player_id='p1',archived=True),'staff')
   self.s.bind(self.body('b'),'staff')

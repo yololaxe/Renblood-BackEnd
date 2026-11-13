@@ -15,3 +15,5 @@ L’édition du lore crée un brouillon explicite du WikiStore existant, avec ap
 API privée : `/api/characters/v1/admin/`, `bind/`, `profiles/`, `lore/<id>/`, `prepare/`, `publish/`. Toutes exigent Firebase Admin. Écran : `/admin/characters`.
 
 Tests sans base : `python manage.py test characters.test_views npcs.tests wiki.test_service wiki.test_views`. Tests transactionnels : définir explicitement `RENBLOOD_IDENTITY_TEST_MONGO_URI`, puis exécuter `python -m unittest characters.test_integration`. Ces tests créent une base `renblood_identity_test_<12 caractères>` et suppriment uniquement cette base. Ils ne réutilisent pas une base de production/staging comme destination.
+
+Le journal `npcs.native_changes.ChangeLog` alloue et insère une révision dans la même transaction : un sondage ne peut dépasser un événement non encore commité. Djongo ne générait pas les BigAutoField dans la collection de production. `repair_missing_revisions()` récupère les anciennes notifications sans modifier leur contenu ; exécuter seulement avec sauvegarde et base cible explicitement vérifiée.
