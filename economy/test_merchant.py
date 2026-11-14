@@ -204,3 +204,19 @@ class MerchantTests(unittest.TestCase):
         self.bank.transact(lambda s:self.service.gain_xp(self.owner,'client','minecraft:bread',8,s))
         self.assertEqual(self.bank.db.players.find_one({'id':self.owner})['experiences']['jobs']['merchant']['xp'],-1)
         self.assertEqual(self.service.profile(self.owner)['xp'],1)
+
+    def test_travel_fees_and_confirmed_refunds_are_in_known_net(self):
+        op={'_id':'voyage','owner_id':self.owner,'business_id':'passage:port','action':'SERVICE','amount':64,'reason':'Traversée'}
+        self.bank.transact(lambda s:self.service.settled(op,'delivery',s))
+        self.assertEqual(self.bank.db.merchant_ledger.find_one({'_id':'voyage'})['profit'],-64)
+        op={**op,'_id':'refund','action':'REFUND'}
+        self.bank.transact(lambda s:self.service.settled(op,'delivery',s))
+        self.assertEqual(sum(row['profit'] for row in self.bank.db.merchant_ledger.find({})),0)
+
+    def test_only_confirmed_trade_feeds_the_city_market_once(self):
+        cancelled=self.purchase();self.finish(cancelled,'cancel')
+        self.assertEqual(self.bank.db.market_transactions.count_documents({}),0)
+        op=self.claim(self.accept());proof=str(uuid.uuid4());self.finish(op,proof=proof)
+        self.commerce.transition(op['_id'],self.actor,'delivery',0,proof)
+        activity=list(self.bank.db.market_transactions.find({'operation_id':op['_id']}))
+        self.assertEqual(len(activity),1);self.assertEqual(activity[0]['city_id'],'1');self.assertEqual(activity[0]['action'],'SELL')

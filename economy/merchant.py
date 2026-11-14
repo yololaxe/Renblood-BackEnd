@@ -313,6 +313,22 @@ class Merchant:
             if action=='delivery':
                 self.db.merchant_demand.update_one({'_id':row['demand_id']},{'$inc':{'held':-row['quantity']}},session=s)
                 self.gain_xp(op['owner_id'],'city:'+row['city_id'],row['item_id'],op['quantity'],s)
+        if action=='delivery' and op['business_id'].startswith(('merchant:supply:','merchant:demand:')) and op['action'] in ['BUY','SELL']:
+            city_id=op['business_id'].split(':',2)[2]
+            player=self.db.players.find_one({'id':op['owner_id']},{'id_minecraft':1,'name':1},session=s) or {}
+            self.db.market_transactions.insert_one({'id':op['_id'],'operation_id':op['_id'],'counter_id':None,
+                'city_id':city_id,'player_uuid':player.get('id_minecraft',''),'player_name':player.get('name',op['owner_id']),
+                'owner_type':'CITY','owner_id':city_id,'item_id':op.get('item_id'),
+                'item_display_name':op.get('item_display_name',op.get('item_id')),'action':op['action'],
+                'quantity':op['quantity'],'unit_price':op['unit_price'],'total_price':op['amount'],
+                'owner_gain':op['amount'] if op['action']=='BUY' else 0,'tax':op.get('tax',0),
+                'price_version':op['price_version'],'rule_version':'merchant-v1','created_at':datetime.now(timezone.utc)},session=s)
+        if action=='delivery' and op['business_id'].startswith('passage:') and op['action'] in ['SERVICE','REFUND']:
+            refunded=op['action']=='REFUND'
+            self.db.merchant_ledger.insert_one({'_id':op['_id'],'id':op['_id'],'owner_id':op['owner_id'],
+                'item_id':None,'name':op.get('reason','Traversée'),'action':'REFUND' if refunded else 'FEE',
+                'quantity':1,'amount':op['amount'],'cost':0 if refunded else op['amount'],
+                'profit':op['amount'] if refunded else -op['amount'],'business_id':op['business_id'],'created_at':timestamp()},session=s)
         if action!='delivery' or op['action'] not in ['BUY','SELL'] or not op.get('item_id'):return
         if op['business_id'].startswith('market:') and op.get('business_owner_id')==op['owner_id']:return
         self.record_ledger(op,s,op['owner_id'],op['action'],op['amount'],op['_id'])
