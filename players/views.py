@@ -454,24 +454,7 @@ def get_me(request, firebase_uid=None):
         return JsonResponse({"error": "Joueur introuvable"}, status=404)
 
 
-LEVEL_THRESHOLDS = [
-    (3000, 15),
-    (2000, 14),
-    (1600, 13),
-    (1250, 12),
-    (1000, 11),
-    (750, 10),
-    (600, 9),
-    (450, 8),
-    (350, 7),
-    (270, 6),
-    (200, 5),
-    (140, 4),
-    (90, 3),
-    (50, 2),
-    (20, 1),
-    (0, 0),
-]
+from jobs.progression import LEVEL_THRESHOLDS
 
 @csrf_exempt
 @minecraft_api_key_or_firebase_admin_required

@@ -194,8 +194,10 @@ class Commerce:
             if previous and previous['request_hash']==digest:return previous
             raise EconomyError('IDEMPOTENCY_CONFLICT','Cette clé désigne un autre ajustement.')
 
-    def prepare(self, owner, actor, key, body, administrator=False):
+    def prepare(self, owner, actor, key, body, administrator=False, session=None, _merchant_internal=False):
         identifier(key, 'Clé'); business_id = identifier(body.get('business_id'))
+        if body.get('merchant_contract_id') and not business_id.startswith('merchant:demand:'):
+            raise EconomyError('INVALID_CONTRACT','Le reçu ne désigne pas une commande marchande.',400)
         action = body.get('action'); payment = body.get('payment', 'BANK')
         if action not in {'BUY', 'SELL', 'SERVICE', 'CLAIM', 'FUND', 'REFUND', 'STOCK_IN', 'STOCK_OUT'} or payment not in {'BANK', 'CASH'}:
             raise EconomyError('INVALID_REQUEST', 'Règlement invalide.', 400)
@@ -208,7 +210,13 @@ class Commerce:
             if previous:
                 if previous['request_hash'] != digest:
                     raise EconomyError('IDEMPOTENCY_CONFLICT', 'Cette clé désigne une autre opération.')
+                if business_id.startswith('merchant:') and not _merchant_internal:
+                    from .merchant import Merchant
+                    Merchant(self.bank).validate_prepare(owner,actor,body,s,previous)
                 return previous
+            if business_id.startswith('merchant:') and not _merchant_internal:
+                from .merchant import Merchant
+                Merchant(self.bank).validate_prepare(owner,actor,body,s)
             business = self.business(business_id, s); box = 'cashbox:' + business_id
             if type(business.get('tax_bps')) is not int or not 0<=business['tax_bps']<=10000:
                 raise EconomyError('INVALID_RULE','Le barème fiscal de cette caisse doit être vérifié.')
@@ -339,8 +347,13 @@ class Commerce:
             if body.get('reason'):op['administrative_reason']=identifier(body['reason'],'Motif')
             for field in ['item_id','item_display_name']:
                 if field in body: op[field]=identifier(body[field])
+            if body.get('merchant_contract_id'):op['merchant_contract_id']=body['merchant_contract_id']
             self.bank.operations.insert_one(op, session=s)
+            if business_id.startswith('merchant:') and not _merchant_internal:
+                from .merchant import Merchant
+                Merchant(self.bank).prepared(op,s)
             return op
+        if session is not None:return run(session)
         try:
             return self.bank.transact(run)
         except DuplicateKeyError:
@@ -349,7 +362,7 @@ class Commerce:
                 return old
             raise EconomyError('IDEMPOTENCY_CONFLICT', 'Cette clé désigne une autre opération.')
 
-    def transition(self, ident, actor, action, revision, proof, reviewer=None):
+    def transition(self, ident, actor, action, revision, proof, reviewer=None, session=None):
         if action not in {'delivery', 'cancel', 'reconcile'} or type(revision) is not int or revision < 0:
             raise EconomyError('INVALID_REQUEST', 'Transition invalide.', 400)
         identifier(proof, 'Preuve')
@@ -416,6 +429,8 @@ class Commerce:
                         'owner_uuid':player.get('id_minecraft',''),'owner_name':player.get('name',op['owner_id']),
                         'amount':op['amount'],'withdrawn_at':datetime.now(timezone.utc),'source':'MINECRAFT',
                         'created_at':datetime.now(timezone.utc)},session=s)
+            from .merchant import Merchant
+            Merchant(self.bank).settled(op,action,s)
             changes = {'state': target, 'proof_id': proof, 'updated_at': timestamp()}
             if reviewer: changes['reviewed_by'] = reviewer
             update={'$set':changes,'$inc':{'revision':1}}
@@ -425,7 +440,7 @@ class Commerce:
                 op={k:v for k,v in op.items() if k!='original_operation_id'}
             self.bank.operations.update_one({'_id': ident}, update, session=s)
             return {**op, **changes, 'revision': revision + 1}
-        return self.bank.transact(run)
+        return run(session) if session is not None else self.bank.transact(run)
 
     def complete_quest(self,owner,quest_id):
         """Freeze rewards atomically with completion; historical payouts stay fenced."""
